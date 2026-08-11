@@ -555,60 +555,153 @@ int menu_choose_save(Game *game) {
 /* Barre de progression du lancement                                   */
 /* ------------------------------------------------------------------ */
 
-/* Le lancement enchaine des appels au modele dont on ne connait pas la duree :
- * une barre en pourcentage serait donc une invention. Ce qu'on connait, ce sont
- * les ETAPES. La barre avance donc par etapes terminees, et l'etape en cours
- * respire (un bloc plus clair qui la traverse) pour montrer que ca travaille
- * sans pretendre savoir combien il reste.
+/* Le lancement enchaine des appels au modele dont on ne connait pas la duree.
+ * Le compteur montre l'etape reelle ; la barre, elle, se remplit doucement sur
+ * une base visuelle de 90 secondes pour eviter deux longs plateaux. Le travail
+ * local garde son reflet mobile et les appels au modele deviennent un flux
+ * binaire. Au-dela des 90 secondes, elle reste verte avec un temoin mobile :
+ * le jeu ne pretend donc jamais que le travail est fini avant qu'il le soit.
  *
  * `step` : etapes deja terminees. `frame` : compteur d'animation, incremente par
  * l'appelant a chaque tour de boucle. */
-#define LAUNCH_STEPS 2
+#define LAUNCH_STEPS 7
+#define LAUNCH_FILL_MS 90000ULL
+#define LAUNCH_LABEL_MS 5000ULL
 
 static void draw_launch_progress(WINDOW *win, int y, int width,
-                                 int step, const char *label, int frame) {
-	if (width < 20) width = 20;
+                                 int step, const char *label, int frame,
+                                 bool receiving_model, uint64_t elapsed_ms,
+                                 bool complete) {
+	int win_w = getmaxx(win);
+	char count[16];
+	snprintf(count, sizeof(count), "%d/%d",
+	         step < LAUNCH_STEPS ? step + 1 : LAUNCH_STEPS, LAUNCH_STEPS);
+	int count_w = (int)strlen(count);
+
+	/* La barre et son compteur forment un seul bloc centre. Sur un terminal
+	 * etroit, la barre se contracte mais ne touche jamais le cadre. */
+	int max_width = win_w - count_w - 8;
+	if (max_width < 10) max_width = 10;
+	if (width > max_width) width = max_width;
+	if (width < 10) width = 10;
+
 	int inner = width - 2;                        /* sans les crochets */
-	int per   = inner / LAUNCH_STEPS;
-	int done  = step * per;
-	/* Une largeur qui ne se divise pas en parts egales laisserait sinon un creux
-	 * a la fin, alors que tout est termine. */
-	if (step >= LAUNCH_STEPS || done > inner) done = inner;
+	/* Le numero reste celui de l'etape REELLE, mais le remplissage est lisse
+	 * sur 90 secondes : les petites etapes locales ne disparaissent plus entre
+	 * deux rafraichissements. Une fin precoce remplit immediatement le reste. */
+	uint64_t capped = elapsed_ms < LAUNCH_FILL_MS ? elapsed_ms : LAUNCH_FILL_MS;
+	int filled = complete ? inner : (int)((uint64_t)inner * capped / LAUNCH_FILL_MS);
+	bool overtime = !complete && elapsed_ms >= LAUNCH_FILL_MS;
+
+	/* Effacer les deux anciennes lignes sans emporter les montants du cadre. */
+	mvwhline(win, y,     1, ' ', win_w - 2);
+	mvwhline(win, y + 1, 1, ' ', win_w - 2);
+
+	/* Le texte de l'etape vit au-dessus de la barre et se centre independamment
+	 * d'elle. Les libelles sont volontairement assez courts pour tenir dans les
+	 * fenetres minimales du jeu. */
+	int label_w = label ? text_display_cols(label) : 0;
+	int label_x = (win_w - label_w) / 2;
+	if (label_x < 2) label_x = 2;
+	wattron(win, COLOR_PAIR(PAIR_TEXT));
+	mvwprintw(win, y, label_x, "%s", label ? label : "");
+	wattroff(win, COLOR_PAIR(PAIR_TEXT));
+
+	int block_w = width + 1 + count_w;
+	int x = (win_w - block_w) / 2;
+	if (x < 2) x = 2;
 
 	wattron(win, COLOR_PAIR(9));
-	mvwaddch(win, y, 3, '[');
+	mvwaddch(win, y + 1, x, '[');
 	wattroff(win, COLOR_PAIR(9));
 
 	for (int i = 0; i < inner; i++) {
-		if (i < done) {
-			/* Etapes terminees : plein. */
+		if (complete) {
 			wattron(win, COLOR_PAIR(PAIR_GOOD));
-			mvwaddwstr(win, y, 4 + i, L"█");
+			mvwaddwstr(win, y + 1, x + 1 + i, L"█");
 			wattroff(win, COLOR_PAIR(PAIR_GOOD));
-		} else if (i < done + per && step < LAUNCH_STEPS) {
-			/* Etape en cours : un reflet qui va et vient dedans. */
-			int local = i - done;
-			int cycle = 2 * per - 2;
-			int pos   = cycle > 0 ? frame % cycle : 0;
-			if (pos >= per) pos = cycle - pos;     /* aller-retour */
-			wattron(win, COLOR_PAIR(PAIR_WARN));
-			mvwaddwstr(win, y, 4 + i, (local == pos) ? L"█" : L"▒");
-			wattroff(win, COLOR_PAIR(PAIR_WARN));
+		} else if (overtime) {
+			/* Le budget visuel est ecoule, pas le vrai travail : un temoin vert
+			 * large de deux cases rebondit sur la barre orange. Trois cases toutes
+			 * les deux images le rendent un peu plus vif sans devenir saccade. */
+			int travel = inner - 2;
+			int cycle = 2 * travel;
+			int pos = cycle > 0 ? ((frame * 3) / 2) % cycle : 0;
+			if (pos > travel) pos = cycle - pos;
+			int pair = (i == pos || i == pos + 1) ? PAIR_GOOD : PAIR_WARN;
+			wattron(win, COLOR_PAIR(pair));
+			mvwaddwstr(win, y + 1, x + 1 + i, L"█");
+			wattroff(win, COLOR_PAIR(pair));
+		} else if (receiving_model) {
+			/* Pendant le reseau, les donnees traversent TOUTE la barre. La
+			 * progression ne disparait pas pour autant : la partie ecoulee devient
+			 * verte, le reste demeure discret. */
+			static const char bits[] = "0100111011010010";
+			int nbits = (int)sizeof(bits) - 1;
+			int pair = i < filled ? PAIR_GOOD : 9;
+			int attrs = COLOR_PAIR(pair) | (i < filled ? A_BOLD : 0);
+			wattron(win, attrs);
+			mvwaddch(win, y + 1, x + 1 + i, bits[(i + frame) % nbits]);
+			wattroff(win, attrs);
+		} else if (i < filled) {
+			/* Travail local deja represente par le chronometre : plein. */
+			wattron(win, COLOR_PAIR(PAIR_GOOD));
+			mvwaddwstr(win, y + 1, x + 1 + i, L"█");
+			wattroff(win, COLOR_PAIR(PAIR_GOOD));
 		} else {
-			wattron(win, COLOR_PAIR(9));
-			mvwaddwstr(win, y, 4 + i, L"░");
-			wattroff(win, COLOR_PAIR(9));
+			/* Animation locale historique : un reflet orange se deplace dans la
+			 * partie qui reste a remplir. */
+			int remaining = inner - filled;
+			int local = i - filled;
+			int cycle = 2 * remaining - 2;
+			int pos = cycle > 0 ? frame % cycle : 0;
+			if (pos >= remaining) pos = cycle - pos;
+			int pair = local == pos ? PAIR_WARN : 9;
+			wattron(win, COLOR_PAIR(pair));
+			mvwaddwstr(win, y + 1, x + 1 + i, local == pos ? L"█" : L"░");
+			wattroff(win, COLOR_PAIR(pair));
 		}
 	}
 
 	wattron(win, COLOR_PAIR(9));
-	mvwaddch(win, y, 4 + inner, ']');
-	wprintw(win, " %d/%d  ", step < LAUNCH_STEPS ? step + 1 : LAUNCH_STEPS, LAUNCH_STEPS);
+	mvwaddch(win, y + 1, x + 1 + inner, ']');
+	wprintw(win, " %s", count);
 	wattroff(win, COLOR_PAIR(9));
+}
 
-	wattron(win, COLOR_PAIR(PAIR_TEXT));
-	wprintw(win, "%-44s", label ? label : "");
-	wattroff(win, COLOR_PAIR(PAIR_TEXT));
+static const char *resolution_wait_label(uint64_t elapsed_ms) {
+	static const char *labels[] = {
+		"Le modele remet les faits dans le bon ordre...",
+		"Les alibis passent au peigne fin...",
+		"Le coupable travaille deja son air innocent...",
+		"On recolle les morceaux sans perdre les empreintes...",
+		"La chronologie repasse une derniere fois au propre...",
+		"Les temoignages comparent leurs versions en silence...",
+		"On pese les mobiles, sans la balance du legiste...",
+		"Les contradictions commencent a transpirer...",
+		"Chaque indice cherche sa place dans le dossier...",
+		"Les fausses pistes sont priees de patienter dehors...",
+		"Notre inspecteur virtuel relit les petites lignes...",
+		"La reconstitution ajuste ses derniers details...",
+	};
+	return labels[(elapsed_ms / LAUNCH_LABEL_MS) %
+	              (uint64_t)(sizeof(labels) / sizeof(labels[0]))];
+}
+
+static const char *evidence_wait_label(uint64_t elapsed_ms) {
+	static const char *labels[] = {
+		"Le modele cherche une seconde source fiable...",
+		"Une preuve reclame un temoin un peu moins compromis...",
+		"On complete le dossier, trombones sous controle...",
+		"On verifie qui peut reellement sortir cette preuve...",
+		"L'indice change de main, mais pas de version...",
+		"Un temoin secondaire fouille poliment ses archives...",
+		"Les acces au dossier sont passes en revue...",
+		"La preuve prepare son double exemplaire...",
+		"Le dernier verrou cherche discretement sa cle...",
+	};
+	return labels[(elapsed_ms / LAUNCH_LABEL_MS) %
+	              (uint64_t)(sizeof(labels) / sizeof(labels[0]))];
 }
 
 /* Un element a charge que SEUL le coupable peut rapporter rend l'enquete
@@ -620,7 +713,7 @@ static void draw_launch_progress(WINDOW *win, int y, int width,
  * Renvoie le nombre de trous combles. N'emet AUCUN appel quand il n'y en a pas,
  * ce qui est le cas d'une histoire correctement ecrite. */
 static int fill_solubility_gaps(Game *game, WINDOW *win, int status_y, int bar_w,
-                                const SolutionResult *sol) {
+                                const SolutionResult *sol, uint64_t launch_started) {
 	const char *missing[ANALYSIS_MAX_FACTS];
 	int nb_missing = 0;
 
@@ -629,7 +722,13 @@ static int fill_solubility_gaps(Game *game, WINDOW *win, int status_y, int bar_w
 		                                   game->save->culprit_id))
 			missing[nb_missing++] = sol->fact_ids[i];
 	}
-	if (nb_missing == 0) return 0;
+	if (nb_missing == 0) {
+		draw_launch_progress(win, status_y, bar_w, 4,
+		                     "Toutes les preuves ont une sortie de secours.", 0, false,
+		                     millis() - launch_started, false);
+		wrefresh(win);
+		return 0;
+	}
 
 	char *p = prompt_build_clue_fill(game->story, game->save->culprit_id,
 	                                 missing, nb_missing);
@@ -640,11 +739,14 @@ static int fill_solubility_gaps(Game *game, WINDOW *win, int status_y, int bar_w
 	if (!req) return 0;
 
 	int frame = 0;
+	uint64_t wait_started = millis();
 	char *raw = NULL;
 	int st;
 	while ((st = deepseek_poll_raw(req, &raw)) == 0) {
-		draw_launch_progress(win, status_y, bar_w, 1,
-		                     "Constitution du dossier de preuves...", frame++);
+		const char *label = evidence_wait_label(millis() - wait_started);
+		draw_launch_progress(win, status_y, bar_w, 4,
+		                     label, frame, true, millis() - launch_started, false);
+		frame++;
 		wrefresh(win);
 		usleep(120000);
 	}
@@ -693,8 +795,21 @@ static int fill_solubility_gaps(Game *game, WINDOW *win, int status_y, int bar_w
 }
 
 static void generate_solution(Game *game, WINDOW *win, int status_y, int bar_w) {
-	if (!game->save->culprit_id) return;
-	if (game->save->culprit_solution) return;   /* deja fait, partie reprise */
+	uint64_t launch_started = millis();
+	const char *ready = "L'enquete peut commencer, appuyez sur [ENTREE]";
+	if (!game->save->culprit_id || game->save->culprit_solution) {
+		/* Partie reprise : rien a recalculer, mais l'invitation ne doit apparaitre
+		 * qu'ici, au meme endroit que pour une nouvelle enquete terminee. */
+		draw_launch_progress(win, status_y, bar_w, LAUNCH_STEPS, ready, 0, false,
+		                     0, true);
+		wrefresh(win);
+		return;
+	}
+
+	draw_launch_progress(win, status_y, bar_w, 0,
+	                     "On ouvre le dossier et on sort les crayons rouges...", 0, false,
+	                     0, false);
+	wrefresh(win);
 
 	char *p = prompt_build_solution(game->story, game->save->culprit_id);
 	if (!p) return;
@@ -704,24 +819,27 @@ static void generate_solution(Game *game, WINDOW *win, int status_y, int bar_w) 
 	if (!req) return;
 
 	int frame = 0;
+	uint64_t wait_started = millis();
 	char *raw = NULL;
 	int st;
 	bool dropped_all = false;   /* aucun element a charge n'etait atteignable */
 	bool no_facts    = false;   /* le modele n'en a propose aucun */
 	while ((st = deepseek_poll_raw(req, &raw)) == 0) {
-		draw_launch_progress(win, status_y, bar_w, 0,
-		                     "Reconstitution de l'affaire...", frame++);
+		const char *label = resolution_wait_label(millis() - wait_started);
+		draw_launch_progress(win, status_y, bar_w, 1,
+		                     label, frame, true, millis() - launch_started, false);
+		frame++;
 		wrefresh(win);
 		usleep(120000);
 	}
 
-	/* Premiere etape faite : la barre le montre pendant la verification, meme
-	 * quand celle-ci n'a besoin d'aucun appel (histoire deja soluble) — sinon
-	 * elle resterait bloquee a 1/2 jusqu'au message final. Rien a annoncer si la
-	 * premiere etape a echoue : le message d'erreur suit immediatement. */
+	/* Reponse recue : les phases suivantes sont locales et retrouvent le reflet
+	 * mobile de la barre. Rien a annoncer si l'appel a echoue : le message
+	 * d'erreur suit immediatement. */
 	if (st == 1) {
-		draw_launch_progress(win, status_y, bar_w, 1,
-		                     "Verification du dossier de preuves...", 0);
+		draw_launch_progress(win, status_y, bar_w, 2,
+		                     "La reconstitution est arrivee. On dechiffre les notes...",
+		                     frame++, false, millis() - launch_started, false);
 		wrefresh(win);
 	}
 
@@ -733,12 +851,23 @@ static void generate_solution(Game *game, WINDOW *win, int status_y, int bar_w) 
 			sol.solution = NULL;
 			sol.culprit_brief = NULL;
 
+			draw_launch_progress(win, status_y, bar_w, 3,
+			                     "On verifie que chaque preuve est vraiment trouvable...",
+			                     frame++, false, millis() - launch_started, false);
+			wrefresh(win);
+
 			/* Avant de filtrer, on essaie de REPARER : les elements a charge que
 			 * seul le coupable pouvait rapporter recoivent une piece a conviction
 			 * et un second detenteur. Ce qui reste inatteignable apres ca est
 			 * ecarte juste en dessous. */
-			int filled = fill_solubility_gaps(game, win, status_y, bar_w, &sol);
+			int filled = fill_solubility_gaps(game, win, status_y, bar_w, &sol,
+			                                    launch_started);
 			(void)filled;
+
+			draw_launch_progress(win, status_y, bar_w, 5,
+			                     "Dernier recoupement : faits, suspects et contradictions...",
+			                     frame++, false, millis() - launch_started, false);
+			wrefresh(win);
 
 			/* Les elements a charge doivent etre atteignables SANS le coupable,
 			 * sinon l'enquete est verrouillee : il faut la preuve pour obtenir
@@ -781,28 +910,34 @@ static void generate_solution(Game *game, WINDOW *win, int status_y, int bar_w) 
 	/* Le joueur doit savoir qu'il part avec une enquete verrouillee : sans ce
 	 * mot, il chercherait des heures une preuve que personne ne peut lui
 	 * donner. */
-	const char *status = "L'enquete peut commencer.";
-	if (st != 1)          status = "Enquete prete (resolution indisponible).";
-	else if (no_facts)    status = "Attention : la resolution ne designe aucun element a charge.";
-	else if (dropped_all) status = "Attention : aucune preuve n'est accessible sans l'aveu.";
+	const char *warning = NULL;
+	if (st != 1)          warning = "Resolution indisponible pour cette enquete.";
+	else if (no_facts)    warning = "Attention : la resolution ne designe aucun element a charge.";
+	else if (dropped_all) warning = "Attention : aucune preuve n'est accessible sans l'aveu.";
 
-	/* Le travail est fini : la barre a joue son role et laisse la place au
-	 * message, qui peut etre long (un avertissement de solubilite) et doit rester
-	 * lisible sur un terminal etroit. On efface la ligne d'abord, la barre etant
-	 * plus large que certains messages.
-	 * wclrtoeol emporte le bord droit du cadre : on le remet (les deux fenetres
-	 * d'ou l'on vient sont encadrees, briefing comme nouvelle enquete). */
-	wmove(win, status_y, 3);
-	wclrtoeol(win);
-	wattron(win, COLOR_PAIR(PAIR_BORDER));
-	mvwaddch(win, status_y, getmaxx(win) - 1, ACS_VLINE);
-	wattroff(win, COLOR_PAIR(PAIR_BORDER));
-
-	wattron(win, COLOR_PAIR(st == 1 && !no_facts && !dropped_all ? PAIR_GOOD : PAIR_WARN));
-	mvwprintw(win, status_y, 3, "%s", status);
-	wattroff(win, COLOR_PAIR(st == 1 && !no_facts && !dropped_all ? PAIR_GOOD : PAIR_WARN));
+	draw_launch_progress(win, status_y, bar_w, 6,
+	                     "On classe le dossier sans egarer la piece maitresse...",
+	                     frame++, false, millis() - launch_started, false);
 	wrefresh(win);
 	game_autosave(game);
+
+	/* Barre pleine conservee a l'ecran : le message final remplace le libelle,
+	 * centre lui aussi, et le joueur voit clairement que tout est termine. */
+	draw_launch_progress(win, status_y, bar_w, LAUNCH_STEPS, ready, frame, false,
+	                     millis() - launch_started, true);
+	/* Un avertissement eventuel occupe la ligne libre sous la barre. Il
+	 * n'apparait lui aussi qu'une fois tout traitement termine. */
+	if (warning) {
+		int win_w = getmaxx(win);
+		int warning_w = text_display_cols(warning);
+		int warning_x = (win_w - warning_w) / 2;
+		if (warning_x < 2) warning_x = 2;
+		mvwhline(win, status_y + 2, 1, ' ', win_w - 2);
+		wattron(win, COLOR_PAIR(PAIR_WARN));
+		mvwprintw(win, status_y + 2, warning_x, "%s", warning);
+		wattroff(win, COLOR_PAIR(PAIR_WARN));
+	}
+	wrefresh(win);
 }
 
 /* Question fermee. `dangerous` met la reponse affirmative en rouge : on ne
@@ -1273,9 +1408,8 @@ static void restart_story(Game *game) {
 	wattroff(win, COLOR_PAIR(PAIR_TITLE) | A_BOLD);
 	wrefresh(win);
 
-	/* Barre bornee a la fenetre : sur un terminal etroit elle rétrécit au lieu
-	 * de deborder sur le cadre. */
-	int bar_w = win_w - 56 < 40 ? win_w - 56 : 40;
+	/* draw_launch_progress la centre et la contracte si la fenetre est etroite. */
+	int bar_w = 46;
 	generate_solution(game, win, 4, bar_w);
 	napms(600);
 	delwin(win);
@@ -1746,13 +1880,10 @@ void menu_show_briefing(Game *game) {
 		}
 	}
 
-	int status_y = win_h - 3;
-	wattron(win, COLOR_PAIR(9));
-	mvwprintw(win, win_h - 2, 3, "[Entree] entrer dans le batiment");
-	wattroff(win, COLOR_PAIR(9));
-	wrefresh(win);
+	/* Deux lignes reservees : libelle centre, puis barre centree. */
+	int status_y = win_h - 4;
 
-	int bar_w = win_w - 56 < 40 ? win_w - 56 : 40;
+	int bar_w = 46;
 	generate_solution(game, win, status_y, bar_w);
 
 	nodelay(stdscr, FALSE);
