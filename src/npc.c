@@ -602,6 +602,10 @@ static int npc_send_to(Game *game, int idx, const char *text, bool overheard,
 	build_scene(game, idx, &scene);
 	scene.overheard         = overheard;
 	scene.overheard_speaker = overheard_speaker;
+	/* Il a traverse le batiment pour parler : lui interdire de rien dire (ce
+	 * qu'on impose a celui qui surprend une conversation) le laisserait plante
+	 * la sans un mot, exactement le bug que maybe_queue_arrival_talk corrige. */
+	scene.came_to_speak     = overheard && game->interject_is_arrival;
 	char *system_prompt = prompt_build_dialogue(game->story, game->save, npc->def, text, &scene);
 
 	DeepseekMsg hist[64];
@@ -704,8 +708,9 @@ static void maybe_queue_arrival_talk(Game *game) {
 		         map_room_name(&game->map, npc->room) ? map_room_name(&game->map, npc->room) : "cette piece",
 		         game->npcs[target].def->name);
 
-		game->interject_npc     = i;
-		game->interject_speaker = target;
+		game->interject_npc        = i;
+		game->interject_speaker    = target;
+		game->interject_is_arrival = 1;
 		return;
 	}
 }
@@ -745,8 +750,9 @@ static void maybe_queue_interjection(Game *game, int speaker,
 		         speaker_name, heard_line);
 	}
 
-	game->interject_npc     = pick;
-	game->interject_speaker = speaker;
+	game->interject_npc        = pick;
+	game->interject_speaker    = speaker;
+	game->interject_is_arrival = 0;
 }
 
 /* Lance l'intervention en attente, une fois la voie libre. */
@@ -1039,7 +1045,14 @@ void npc_talk_update(Game *game) {
 		}
 	}
 
-	maybe_start_analysis(game, idx, game->pending_question, reply.line);
+	/* Sur une intervention, la question en attente etait adressee a QUELQU'UN
+	 * D'AUTRE : la donner a l'analyse lui presentait un echange qui n'a jamais
+	 * eu lieu, et elle creditait le joueur de faits qu'il n'avait pas demandes. */
+	maybe_start_analysis(game, idx,
+	                     was_interjection ? "(rien : personne ne lui a rien demande, "
+	                                        "il est intervenu de lui-meme)"
+	                                      : game->pending_question,
+	                     reply.line);
 
 	/* Quelqu'un d'autre dans la piece peut vouloir reagir a ce qui vient
 	 * d'etre dit. On se contente de le designer : la requete partira au tour

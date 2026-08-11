@@ -181,7 +181,7 @@ static void draw_story_list(WINDOW *win, int h, int w, StoryInfo *list, int coun
 	 * science-fiction, thriller » etait coupe a « ...thr » par un %.30s, qui
 	 * compte des OCTETS et se trompe donc encore davantage avec des accents. */
 	const int title_w = 28;
-	const int mark_w  = 14;                       /* " [sauvegarde]" */
+	const int mark_w  = 30;            /* " [coupable fixe]" + " [sauvegarde]" */
 	int genre_w = w - 8 - title_w - mark_w;
 	if (genre_w < 12) genre_w = 12;
 
@@ -197,6 +197,15 @@ static void draw_story_list(WINDOW *win, int h, int w, StoryInfo *list, int coun
 		wattron(win, COLOR_PAIR(9));
 		print_cols(win, list[i].genre_line, genre_w);
 		wattroff(win, COLOR_PAIR(9));
+
+		/* Qui est le coupable : ecrit par l'auteur, ou tire a chaque nouvelle
+		 * partie. Ce n'est pas un detail au moment de choisir — rejouer une
+		 * enquete dont la reponse change n'a rien a voir avec rejouer la meme.
+		 * Toujours affiche, donc a une colonne fixe : la sauvegarde, elle, est
+		 * facultative et passe apres. */
+		wattron(win, COLOR_PAIR(PAIR_WARN));
+		wprintw(win, list[i].fixed_culprit ? " [coupable fixe]" : " [tire au sort]");
+		wattroff(win, COLOR_PAIR(PAIR_WARN));
 
 		if (list[i].has_save) {
 			wattron(win, COLOR_PAIR(PAIR_GOOD));
@@ -510,6 +519,12 @@ int menu_choose_save(Game *game) {
 	                   game->save->api_completion_tokens,
 	                   game->save->api_calls);
 
+	/* Une partie reprise retrouve les complements de solubilite ecrits a son
+	 * lancement : sans cela, les indices generes et les faits donnes a un second
+	 * personnage disparaitraient au rechargement, et l'enquete redeviendrait
+	 * verrouillee alors que le joueur a peut-etre deja trouve la piece. */
+	story_apply_additions(game->story, game->save);
+
 	/* Les noms deja appris sont retrouves depuis la sauvegarde: un personnage
 	 * avec qui on a deja parle reste connu apres un rechargement. */
 	for (int i = 0; i < game->nb_npcs; i++) {
@@ -536,7 +551,148 @@ int menu_choose_save(Game *game) {
  * affiche: les faits de l'histoire sont volontairement ambigus et ne
  * designent personne, donc sans cela le coupable tire au sort devrait
  * improviser et l'enquete ne tiendrait pas debout. */
-static void generate_solution(Game *game, WINDOW *win, int status_y) {
+/* ------------------------------------------------------------------ */
+/* Barre de progression du lancement                                   */
+/* ------------------------------------------------------------------ */
+
+/* Le lancement enchaine des appels au modele dont on ne connait pas la duree :
+ * une barre en pourcentage serait donc une invention. Ce qu'on connait, ce sont
+ * les ETAPES. La barre avance donc par etapes terminees, et l'etape en cours
+ * respire (un bloc plus clair qui la traverse) pour montrer que ca travaille
+ * sans pretendre savoir combien il reste.
+ *
+ * `step` : etapes deja terminees. `frame` : compteur d'animation, incremente par
+ * l'appelant a chaque tour de boucle. */
+#define LAUNCH_STEPS 2
+
+static void draw_launch_progress(WINDOW *win, int y, int width,
+                                 int step, const char *label, int frame) {
+	if (width < 20) width = 20;
+	int inner = width - 2;                        /* sans les crochets */
+	int per   = inner / LAUNCH_STEPS;
+	int done  = step * per;
+	/* Une largeur qui ne se divise pas en parts egales laisserait sinon un creux
+	 * a la fin, alors que tout est termine. */
+	if (step >= LAUNCH_STEPS || done > inner) done = inner;
+
+	wattron(win, COLOR_PAIR(9));
+	mvwaddch(win, y, 3, '[');
+	wattroff(win, COLOR_PAIR(9));
+
+	for (int i = 0; i < inner; i++) {
+		if (i < done) {
+			/* Etapes terminees : plein. */
+			wattron(win, COLOR_PAIR(PAIR_GOOD));
+			mvwaddwstr(win, y, 4 + i, L"█");
+			wattroff(win, COLOR_PAIR(PAIR_GOOD));
+		} else if (i < done + per && step < LAUNCH_STEPS) {
+			/* Etape en cours : un reflet qui va et vient dedans. */
+			int local = i - done;
+			int cycle = 2 * per - 2;
+			int pos   = cycle > 0 ? frame % cycle : 0;
+			if (pos >= per) pos = cycle - pos;     /* aller-retour */
+			wattron(win, COLOR_PAIR(PAIR_WARN));
+			mvwaddwstr(win, y, 4 + i, (local == pos) ? L"█" : L"▒");
+			wattroff(win, COLOR_PAIR(PAIR_WARN));
+		} else {
+			wattron(win, COLOR_PAIR(9));
+			mvwaddwstr(win, y, 4 + i, L"░");
+			wattroff(win, COLOR_PAIR(9));
+		}
+	}
+
+	wattron(win, COLOR_PAIR(9));
+	mvwaddch(win, y, 4 + inner, ']');
+	wprintw(win, " %d/%d  ", step < LAUNCH_STEPS ? step + 1 : LAUNCH_STEPS, LAUNCH_STEPS);
+	wattroff(win, COLOR_PAIR(9));
+
+	wattron(win, COLOR_PAIR(PAIR_TEXT));
+	wprintw(win, "%-44s", label ? label : "");
+	wattroff(win, COLOR_PAIR(PAIR_TEXT));
+}
+
+/* Un element a charge que SEUL le coupable peut rapporter rend l'enquete
+ * injouable : il faut la preuve pour obtenir l'aveu, et l'aveu pour obtenir la
+ * preuve. Le moteur sait exactement lesquels manquent — il n'y a rien a deviner
+ * la-dessus — donc le modele ne sert qu'a ecrire : une piece a conviction dans
+ * le ton de l'affaire, et le second personnage qui la detient. Le moteur valide,
+ * applique, et reverifie.
+ * Renvoie le nombre de trous combles. N'emet AUCUN appel quand il n'y en a pas,
+ * ce qui est le cas d'une histoire correctement ecrite. */
+static int fill_solubility_gaps(Game *game, WINDOW *win, int status_y, int bar_w,
+                                const SolutionResult *sol) {
+	const char *missing[ANALYSIS_MAX_FACTS];
+	int nb_missing = 0;
+
+	for (int i = 0; i < sol->nb_facts; i++) {
+		if (!story_fact_obtainable_without(game->story, sol->fact_ids[i],
+		                                   game->save->culprit_id))
+			missing[nb_missing++] = sol->fact_ids[i];
+	}
+	if (nb_missing == 0) return 0;
+
+	char *p = prompt_build_clue_fill(game->story, game->save->culprit_id,
+	                                 missing, nb_missing);
+	if (!p) return 0;
+
+	DeepseekRequest *req = deepseek_ask_story(p, "Complete le dossier.");
+	free(p);
+	if (!req) return 0;
+
+	int frame = 0;
+	char *raw = NULL;
+	int st;
+	while ((st = deepseek_poll_raw(req, &raw)) == 0) {
+		draw_launch_progress(win, status_y, bar_w, 1,
+		                     "Constitution du dossier de preuves...", frame++);
+		wrefresh(win);
+		usleep(120000);
+	}
+
+	int applied = 0;
+	ClueFillResult fill;
+	if (st == 1 && raw &&
+	    clue_fill_parse(raw, game->story, game->save->culprit_id, missing, nb_missing, &fill)) {
+
+		SaveState *sv = game->save;
+		sv->gen_clues = realloc(sv->gen_clues,
+		                        sizeof(GeneratedClue) * (size_t)(sv->nb_gen_clues + fill.nb_items));
+		sv->extra_knowledge = realloc(sv->extra_knowledge,
+		                              sizeof(ExtraKnowledge) * (size_t)(sv->nb_extra_knowledge + fill.nb_items));
+
+		for (int i = 0; i < fill.nb_items; i++) {
+			const ClueFill *it = &fill.items[i];
+
+			GeneratedClue *gc = &sv->gen_clues[sv->nb_gen_clues++];
+			memset(gc, 0, sizeof(*gc));
+			gc->id          = strdup(it->clue_id);
+			gc->name        = strdup(it->name);
+			gc->description = strdup(it->description);
+			gc->reveals_fact_ids = calloc(1, sizeof(char *));
+			gc->reveals_fact_ids[0] = strdup(it->fact_id);
+			gc->nb_reveals  = 1;
+
+			/* La piece ne suffit pas : personne ne peut la sortir sans connaitre
+			 * l'un des faits qu'elle etablit (voir character_holds_clue). C'est
+			 * cette ligne-la qui debloque reellement l'enquete. */
+			ExtraKnowledge *ek = &sv->extra_knowledge[sv->nb_extra_knowledge++];
+			ek->npc_id  = strdup(it->holder_id);
+			ek->fact_id = strdup(it->fact_id);
+
+			applied++;
+		}
+		clue_fill_free(&fill);
+
+		/* Versees dans l'histoire en memoire : a partir d'ici, le moteur ne fait
+		 * plus la difference avec un indice d'auteur. */
+		story_apply_additions(game->story, sv);
+	}
+
+	free(raw);
+	return applied;
+}
+
+static void generate_solution(Game *game, WINDOW *win, int status_y, int bar_w) {
 	if (!game->save->culprit_id) return;
 	if (game->save->culprit_solution) return;   /* deja fait, partie reprise */
 
@@ -547,14 +703,26 @@ static void generate_solution(Game *game, WINDOW *win, int status_y) {
 	free(p);
 	if (!req) return;
 
-	const char *spin = "|/-\\";
 	int frame = 0;
 	char *raw = NULL;
 	int st;
+	bool dropped_all = false;   /* aucun element a charge n'etait atteignable */
+	bool no_facts    = false;   /* le modele n'en a propose aucun */
 	while ((st = deepseek_poll_raw(req, &raw)) == 0) {
-		mvwprintw(win, status_y, 3, "Preparation de l'enquete... %c", spin[frame++ % 4]);
+		draw_launch_progress(win, status_y, bar_w, 0,
+		                     "Reconstitution de l'affaire...", frame++);
 		wrefresh(win);
 		usleep(120000);
+	}
+
+	/* Premiere etape faite : la barre le montre pendant la verification, meme
+	 * quand celle-ci n'a besoin d'aucun appel (histoire deja soluble) — sinon
+	 * elle resterait bloquee a 1/2 jusqu'au message final. Rien a annoncer si la
+	 * premiere etape a echoue : le message d'erreur suit immediatement. */
+	if (st == 1) {
+		draw_launch_progress(win, status_y, bar_w, 1,
+		                     "Verification du dossier de preuves...", 0);
+		wrefresh(win);
 	}
 
 	if (st == 1 && raw) {
@@ -564,20 +732,75 @@ static void generate_solution(Game *game, WINDOW *win, int status_y) {
 			game->save->culprit_brief    = sol.culprit_brief;
 			sol.solution = NULL;
 			sol.culprit_brief = NULL;
-			game->save->culprit_fact_ids = calloc((size_t)sol.nb_facts, sizeof(char *));
+
+			/* Avant de filtrer, on essaie de REPARER : les elements a charge que
+			 * seul le coupable pouvait rapporter recoivent une piece a conviction
+			 * et un second detenteur. Ce qui reste inatteignable apres ca est
+			 * ecarte juste en dessous. */
+			int filled = fill_solubility_gaps(game, win, status_y, bar_w, &sol);
+			(void)filled;
+
+			/* Les elements a charge doivent etre atteignables SANS le coupable,
+			 * sinon l'enquete est verrouillee : il faut la preuve pour obtenir
+			 * l'aveu, et l'aveu pour obtenir la preuve. Le modele choisit
+			 * volontiers des faits que seul le coupable connait ; on ne garde
+			 * que ceux qu'un autre peut dire ou qu'une piece a conviction
+			 * etablit. Le seuil de victoire suit (`(n+1)/2`, borne a n), donc
+			 * reduire la liste ne rend rien inatteignable.
+			 * Cas limite : si AUCUN n'est atteignable, on garde la liste telle
+			 * quelle — c'est l'histoire qui est insoluble, et le dire vaut mieux
+			 * que livrer une partie qu'on ne peut pas gagner sans le savoir. */
+			int keep[ANALYSIS_MAX_FACTS], nb_keep = 0;
 			for (int i = 0; i < sol.nb_facts; i++) {
-				game->save->culprit_fact_ids[i] = sol.fact_ids[i];
-				sol.fact_ids[i] = NULL;
+				if (story_fact_obtainable_without(game->story, sol.fact_ids[i],
+				                                 game->save->culprit_id))
+					keep[nb_keep++] = i;
 			}
-			game->save->nb_culprit_facts = sol.nb_facts;
-			sol.nb_facts = 0;
-			solution_free(&sol);
+			/* Deux echecs distincts, deux messages : le modele n'a propose aucun
+			 * element (bug de generation), ou aucun n'est atteignable (histoire
+			 * verrouillee). Un seul message pour les deux enverrait chercher la
+			 * mauvaise cause. */
+			if (sol.nb_facts == 0) {
+				no_facts = true;
+			} else if (nb_keep == 0) {
+				for (int i = 0; i < sol.nb_facts; i++) keep[nb_keep++] = i;
+				dropped_all = true;
+			}
+
+			game->save->culprit_fact_ids = calloc((size_t)nb_keep, sizeof(char *));
+			for (int i = 0; i < nb_keep; i++) {
+				game->save->culprit_fact_ids[i] = sol.fact_ids[keep[i]];
+				sol.fact_ids[keep[i]] = NULL;
+			}
+			game->save->nb_culprit_facts = nb_keep;
+			solution_free(&sol);   /* libere les faits ecartes */
 		}
 	}
 	free(raw);
 
-	mvwprintw(win, status_y, 3, "%-50s", st == 1 ? "L'enquete peut commencer."
-	                                             : "Enquete prete (resolution indisponible).");
+	/* Le joueur doit savoir qu'il part avec une enquete verrouillee : sans ce
+	 * mot, il chercherait des heures une preuve que personne ne peut lui
+	 * donner. */
+	const char *status = "L'enquete peut commencer.";
+	if (st != 1)          status = "Enquete prete (resolution indisponible).";
+	else if (no_facts)    status = "Attention : la resolution ne designe aucun element a charge.";
+	else if (dropped_all) status = "Attention : aucune preuve n'est accessible sans l'aveu.";
+
+	/* Le travail est fini : la barre a joue son role et laisse la place au
+	 * message, qui peut etre long (un avertissement de solubilite) et doit rester
+	 * lisible sur un terminal etroit. On efface la ligne d'abord, la barre etant
+	 * plus large que certains messages.
+	 * wclrtoeol emporte le bord droit du cadre : on le remet (les deux fenetres
+	 * d'ou l'on vient sont encadrees, briefing comme nouvelle enquete). */
+	wmove(win, status_y, 3);
+	wclrtoeol(win);
+	wattron(win, COLOR_PAIR(PAIR_BORDER));
+	mvwaddch(win, status_y, getmaxx(win) - 1, ACS_VLINE);
+	wattroff(win, COLOR_PAIR(PAIR_BORDER));
+
+	wattron(win, COLOR_PAIR(st == 1 && !no_facts && !dropped_all ? PAIR_GOOD : PAIR_WARN));
+	mvwprintw(win, status_y, 3, "%s", status);
+	wattroff(win, COLOR_PAIR(st == 1 && !no_facts && !dropped_all ? PAIR_GOOD : PAIR_WARN));
 	wrefresh(win);
 	game_autosave(game);
 }
@@ -1004,6 +1227,25 @@ static void restart_story(Game *game) {
 	save_free(game->save);
 	game->save = fresh;
 
+	/* L'histoire est rechargee depuis le disque : la partie qu'on abandonne a
+	 * pu y verser ses complements de solubilite, qui appartenaient a SON
+	 * coupable. Les garder ferait traîner des indices d'une enquete a l'autre.
+	 * Tout ce qui pointe dans la Story est reconstruit juste apres. */
+	char story_path[512];
+	snprintf(story_path, sizeof(story_path), "%s", game->story->path);
+	Story *reloaded = story_load(story_path, NULL, 0);
+	if (reloaded) {
+		story_free(game->story);
+		game->story = reloaded;
+	}
+	/* Echec du rechargement : le fichier vient d'etre lu sans probleme, donc on
+	 * n'arrive ici que s'il a change sur le disque entre-temps. On garde
+	 * l'histoire en memoire, complements de la partie precedente compris, et on
+	 * le dit dans le fil (une fois celui-ci recree, plus bas) : une enquete qui
+	 * traine les indices de la precedente sans que personne ne le sache serait
+	 * pire que le message. */
+	bool stale_story = (reloaded == NULL);
+
 	/* Le monde repart de la fiche de l'auteur, pas de l'etat en cours. */
 	game->nb_npcs = npc_build_from_story(game->npcs, NPC_MAX, game->story);
 	map_init(game, game->story);
@@ -1012,6 +1254,11 @@ static void restart_story(Game *game) {
 	chat_free(game);
 	chat_init(game);
 	game->discussion_mode = 0;
+
+	if (stale_story)
+		chat_addf(game, CHAT_SYSTEM, -1,
+		          "Histoire non rechargee (%s) : cette enquete peut contenir des pieces "
+		          "a conviction de la partie precedente.", story_path);
 
 	int h, w;
 	getmaxyx(stdscr, h, w);
@@ -1026,7 +1273,10 @@ static void restart_story(Game *game) {
 	wattroff(win, COLOR_PAIR(PAIR_TITLE) | A_BOLD);
 	wrefresh(win);
 
-	generate_solution(game, win, 4);
+	/* Barre bornee a la fenetre : sur un terminal etroit elle rétrécit au lieu
+	 * de deborder sur le cadre. */
+	int bar_w = win_w - 56 < 40 ? win_w - 56 : 40;
+	generate_solution(game, win, 4, bar_w);
 	napms(600);
 	delwin(win);
 
@@ -1221,6 +1471,21 @@ static void show_message(Game *game, const char *title, const char *body) {
 /* Ouvert avec [Echap] en cours de partie. Les actions rares vivent ici plutot
  * que sur une touche chacune ; le carnet y figure aussi, tout en gardant son
  * raccourci direct, parce qu'on l'ouvre souvent. */
+/* Retour d'un sous-menu vers le menu de pause. delwin ne nettoie pas l'ecran :
+ * la fenetre du sous-menu (le carnet, les options, plus larges que ce menu)
+ * restait visible autour de lui. On restaure le fond du jeu avant de rouvrir. */
+static WINDOW *pause_window_reopen(Game *game, int win_h, int win_w) {
+	int h, w;
+	getmaxyx(stdscr, h, w);
+
+	restore_game_screen(game);
+
+	WINDOW *win = newwin(win_h, win_w, (h - win_h) / 2, (w - win_w) / 2);
+	keypad(win, TRUE);
+	nodelay(win, FALSE);
+	return win;
+}
+
 bool menu_pause(Game *game) {
 	static const char *entries[] = {
 		"Reprendre l'enquete",
@@ -1287,9 +1552,7 @@ bool menu_pause(Game *game) {
 		if (sel == 1) {                            /* carnet */
 			delwin(win);
 			journal_show(game);
-			win = newwin(win_h, win_w, (h - win_h) / 2, (w - win_w) / 2);
-			keypad(win, TRUE);
-			nodelay(win, FALSE);
+			win = pause_window_reopen(game, win_h, win_w);
 			continue;
 		}
 
@@ -1301,27 +1564,28 @@ bool menu_pause(Game *game) {
 			/* Elle reste dans le fil : on peut la relire plus tard sans
 			 * rouvrir le menu. */
 			chat_addf(game, CHAT_SYSTEM, -1, "Piste : %s", hint);
-			win = newwin(win_h, win_w, (h - win_h) / 2, (w - win_w) / 2);
-			keypad(win, TRUE);
-			nodelay(win, FALSE);
+			win = pause_window_reopen(game, win_h, win_w);
 			continue;
 		}
 
 		if (sel == 3) {                            /* options */
 			delwin(win);
 			menu_options(game);
-			win = newwin(win_h, win_w, (h - win_h) / 2, (w - win_w) / 2);
-			keypad(win, TRUE);
-			nodelay(win, FALSE);
+			win = pause_window_reopen(game, win_h, win_w);
 			continue;
 		}
 
 		if (sel == 4) {                            /* solution : on renonce */
+			/* La fenetre de confirmation est plus large que ce menu : refusee,
+			 * elle laissait ses bords visibles de part et d'autre. */
 			if (!confirm("ABANDONNER L'ENQUETE",
 			             "Vous allez apprendre qui est le coupable.",
 			             "L'enquete sera terminee.",
-			             "Oui, montrer la solution", true))
+			             "Oui, montrer la solution", true)) {
+				delwin(win);
+				win = pause_window_reopen(game, win_h, win_w);
 				continue;
+			}
 			delwin(win);
 			quit = menu_show_solution(game, false);
 			clear();
@@ -1332,8 +1596,11 @@ bool menu_pause(Game *game) {
 
 		if (sel == 5) {                            /* quitter */
 			if (!confirm("QUITTER", "La partie est enregistree avant de fermer.",
-			             NULL, "Oui, quitter", false))
+			             NULL, "Oui, quitter", false)) {
+				delwin(win);
+				win = pause_window_reopen(game, win_h, win_w);
 				continue;
+			}
 			quit = true;
 			break;
 		}
@@ -1427,18 +1694,6 @@ void menu_show_briefing(Game *game) {
 	mvwprintw(win, y++, 3, "PERSONNES PRESENTES");
 	wattroff(win, COLOR_PAIR(PAIR_HEADING) | A_BOLD);
 
-	/* Sans cette phrase, une liste de « ? » ressemble a un ecran casse : elle
-	 * dit que le vide est voulu, et que c'est au joueur de le remplir. */
-	int nb_unknown = 0;
-	for (int i = 0; i < game->nb_npcs; i++)
-		if (!game->npcs[i].name_known) nb_unknown++;
-	if (nb_unknown > 0) {
-		wattron(win, COLOR_PAIR(9));
-		mvwprintw(win, y++, 3, "Vous ne savez pas encore qui vous allez trouver : "
-		                       "a vous de les faire parler.");
-		wattroff(win, COLOR_PAIR(9));
-	}
-
 	/* Nom et role sur une ligne, description repliee en dessous. Aucune
 	 * troncature a la largeur d'une colonne : les roles ("Ethicienne,
 	 * Responsable IA") et les descriptions sont des phrases entieres, et
@@ -1465,31 +1720,24 @@ void menu_show_briefing(Game *game) {
 			break;
 		}
 
-		/* Une personne qu'on n'a pas identifiee n'est qu'une silhouette : le
-		 * briefing disait le nom, le metier et la description de tout le monde
-		 * avant meme d'entrer dans le batiment. Il ne reste qu'un « ? » : on
-		 * sait seulement combien de personnes s'y trouvent. */
-		const char *label = npc->name_known ? c->name : "Quelqu'un";
-		wattron(win, COLOR_PAIR(npc->name_known ? npc_color(i) : 9) | A_BOLD);
-		mvwprintw(win, y, 5, "%s", label);
-		wattroff(win, COLOR_PAIR(npc->name_known ? npc_color(i) : 9) | A_BOLD);
-
-		/* La largeur d'affichage n'est pas la taille en octets : on se cale sur
-		 * le nombre de colonnes reellement occupees. */
-		int used = 5 + text_display_cols(label);
-		if (!npc->name_known) {
-			wattron(win, COLOR_PAIR(9));
-			mvwprintw(win, y, used + 1, "- ?");
-			wattroff(win, COLOR_PAIR(9));
-		} else if (c->role && *c->role) {
+		/* Le nom et le metier sont sur la porte du bureau : le briefing les
+		 * donne, comme n'importe quel dossier de depart. */
+		wattron(win, COLOR_PAIR(npc_color(i)) | A_BOLD);
+		mvwprintw(win, y, 5, "%s", c->name);
+		wattroff(win, COLOR_PAIR(npc_color(i)) | A_BOLD);
+		if (c->role && *c->role) {
+			/* La largeur d'affichage n'est pas la taille en octets : on se cale
+			 * sur le nombre de colonnes reellement occupees. */
+			int used = 5 + text_display_cols(c->name);
 			wattron(win, COLOR_PAIR(9));
 			mvwprintw(win, y, used + 1, "- %s", c->role);
 			wattroff(win, COLOR_PAIR(9));
 		}
 		y++;
 
-		/* Uniquement ce qui est public, et seulement si on sait a qui on a
-		 * affaire : le joueur doit decouvrir le reste. */
+		/* La description ne vient qu'avec le nom appris de sa bouche : le
+		 * briefing ne la donne pas, sinon le joueur saurait tout de chacun avant
+		 * meme d'entrer dans le batiment. */
 		if (npc->name_known && c->public_description && *c->public_description && left > 1) {
 			int max_lines = left - 1 < 2 ? left - 1 : 2;
 			wattron(win, COLOR_PAIR(PAIR_TEXT));
@@ -1504,7 +1752,8 @@ void menu_show_briefing(Game *game) {
 	wattroff(win, COLOR_PAIR(9));
 	wrefresh(win);
 
-	generate_solution(game, win, status_y);
+	int bar_w = win_w - 56 < 40 ? win_w - 56 : 40;
+	generate_solution(game, win, status_y, bar_w);
 
 	nodelay(stdscr, FALSE);
 	int ch, dead_reads = 0;

@@ -213,6 +213,18 @@ void save_free(SaveState *st) {
 	free(st->culprit_solution);
 	free(st->culprit_brief);
 	json_free_string_array(st->culprit_fact_ids, st->nb_culprit_facts);
+	for (int i = 0; i < st->nb_gen_clues; i++) {
+		free(st->gen_clues[i].id);
+		free(st->gen_clues[i].name);
+		free(st->gen_clues[i].description);
+		json_free_string_array(st->gen_clues[i].reveals_fact_ids, st->gen_clues[i].nb_reveals);
+	}
+	free(st->gen_clues);
+	for (int i = 0; i < st->nb_extra_knowledge; i++) {
+		free(st->extra_knowledge[i].npc_id);
+		free(st->extra_knowledge[i].fact_id);
+	}
+	free(st->extra_knowledge);
 	for (int i = 0; i < st->nb_npcs; i++) free_npc_state(&st->npcs[i]);
 	free(st->npcs);
 	free(st);
@@ -443,6 +455,56 @@ static bool str_array_add_unique(char ***arr, int *n, const char *value) {
 	return true;
 }
 
+/* ------------------------------------------------------------------ */
+/* Complements de solubilite verses dans l'histoire en memoire          */
+/* ------------------------------------------------------------------ */
+
+void story_apply_additions(Story *story, const SaveState *save) {
+	if (!story || !save) return;
+
+	/* Les indices generes rejoignent ceux de l'auteur. Un identifiant deja
+	 * present est ignore : la fonction est appelee au chargement ET apres la
+	 * generation, et elle doit pouvoir l'etre sans compter deux fois. */
+	for (int i = 0; i < save->nb_gen_clues; i++) {
+		const GeneratedClue *gc = &save->gen_clues[i];
+		if (!gc->id) continue;
+
+		bool exists = false;
+		for (int k = 0; k < story->nb_clues; k++)
+			if (story->clues[k].id && strcmp(story->clues[k].id, gc->id) == 0) exists = true;
+		if (exists) continue;
+
+		story->clues = realloc(story->clues, sizeof(Clue) * (size_t)(story->nb_clues + 1));
+		Clue *cl = &story->clues[story->nb_clues++];
+		memset(cl, 0, sizeof(*cl));
+		cl->id           = strdup(gc->id);
+		cl->name         = strdup(gc->name ? gc->name : gc->id);
+		cl->description  = strdup(gc->description ? gc->description : "");
+		cl->discoverable = true;
+		cl->reveals_fact_ids = calloc((size_t)gc->nb_reveals, sizeof(char *));
+		for (int k = 0; k < gc->nb_reveals; k++)
+			cl->reveals_fact_ids[cl->nb_reveals++] = strdup(gc->reveals_fact_ids[k]);
+	}
+
+	/* Un fait donne a un second personnage. C'est ce qui rend l'indice
+	 * utilisable : dans ce moteur, seul quelqu'un qui connait l'un des faits
+	 * d'une piece peut la sortir. */
+	for (int i = 0; i < save->nb_extra_knowledge; i++) {
+		const ExtraKnowledge *ek = &save->extra_knowledge[i];
+		if (!ek->npc_id || !ek->fact_id) continue;
+		if (!story_fact(story, ek->fact_id)) continue;    /* fait inconnu : ignore */
+
+		for (int c = 0; c < story->nb_characters; c++) {
+			StoryCharacter *ch = &story->characters[c];
+			if (!ch->id || strcmp(ch->id, ek->npc_id) != 0) continue;
+			/* On ne touche pas au tableau `characters`, seulement au tableau de
+			 * chaines d'UN personnage : les NPC gardent leur pointeur `def`. */
+			str_array_add_unique(&ch->known_fact_ids, &ch->nb_known_facts, ek->fact_id);
+			break;
+		}
+	}
+}
+
 bool memory_secret_revealed(SaveState *st, const char *npc_id, const char *secret_id) {
 	NpcState *n = memory_get_npc(st, npc_id);
 	if (!n) return false;
@@ -513,6 +575,31 @@ bool save_write(const SaveState *st, const char *path) {
 	sb_add(&sb, "  \"culprit_fact_ids\": ");
 	write_string_array(&sb, st->culprit_fact_ids, st->nb_culprit_facts);
 	sb_add(&sb, ",\n");
+
+	/* Complements de solubilite ecrits au lancement. Ils appartiennent a CETTE
+	 * partie : le fichier d'histoire n'est jamais modifie. */
+	sb_add(&sb, "  \"generated_clues\": [");
+	for (int i = 0; i < st->nb_gen_clues; i++) {
+		const GeneratedClue *gc = &st->gen_clues[i];
+		char *id = json_escape(gc->id);
+		char *nm = json_escape(gc->name ? gc->name : "");
+		char *ds = json_escape(gc->description ? gc->description : "");
+		sb_addf(&sb, "%s\n    { \"id\": \"%s\", \"name\": \"%s\", \"description\": \"%s\", "
+		             "\"reveals_fact_ids\": ", i ? "," : "", id, nm, ds);
+		write_string_array(&sb, gc->reveals_fact_ids, gc->nb_reveals);
+		sb_add(&sb, " }");
+		free(id); free(nm); free(ds);
+	}
+	sb_add(&sb, st->nb_gen_clues ? "\n  ],\n" : "],\n");
+
+	sb_add(&sb, "  \"extra_knowledge\": [");
+	for (int i = 0; i < st->nb_extra_knowledge; i++) {
+		char *np = json_escape(st->extra_knowledge[i].npc_id);
+		char *fa = json_escape(st->extra_knowledge[i].fact_id);
+		sb_addf(&sb, "%s\n    { \"npc_id\": \"%s\", \"fact_id\": \"%s\" }", i ? "," : "", np, fa);
+		free(np); free(fa);
+	}
+	sb_add(&sb, st->nb_extra_knowledge ? "\n  ],\n" : "],\n");
 
 	sb_addf(&sb, "  \"solved\": %s,\n", st->solved ? "true" : "false");
 	sb_addf(&sb, "  \"api_usage\": { \"prompt_tokens\": %ld, \"completion_tokens\": %ld, "
@@ -635,6 +722,45 @@ SaveState *save_load(const Story *story, const char *path) {
 	                                         &st->nb_culprit_facts);
 
 	st->solved = json_bool_or(json_object_get(root, "solved"), 0);
+
+	/* Complements de solubilite. Absents des sauvegardes anterieures : les
+	 * tableaux restent alors vides et rien ne change. */
+	JsonValue *gcs = json_object_get(root, "generated_clues");
+	int nb_gcs = json_array_count(gcs);
+	if (nb_gcs > 0) {
+		st->gen_clues = calloc((size_t)nb_gcs, sizeof(GeneratedClue));
+		for (int i = 0; i < nb_gcs; i++) {
+			JsonValue *g = json_array_get(gcs, i);
+			GeneratedClue *gc = &st->gen_clues[st->nb_gen_clues];
+			gc->id          = json_strdup(json_object_get(g, "id"));
+			gc->name        = json_strdup(json_object_get(g, "name"));
+			gc->description = json_strdup(json_object_get(g, "description"));
+			gc->reveals_fact_ids = json_strdup_array(json_object_get(g, "reveals_fact_ids"),
+			                                         &gc->nb_reveals);
+			/* Un indice sans identifiant ou qui n'etablit rien ne sert a rien et
+			 * ferait planter le rapprochement plus loin. */
+			if (gc->id && gc->nb_reveals > 0) st->nb_gen_clues++;
+			else {
+				free(gc->id); free(gc->name); free(gc->description);
+				json_free_string_array(gc->reveals_fact_ids, gc->nb_reveals);
+				memset(gc, 0, sizeof(*gc));
+			}
+		}
+	}
+
+	JsonValue *eks = json_object_get(root, "extra_knowledge");
+	int nb_eks = json_array_count(eks);
+	if (nb_eks > 0) {
+		st->extra_knowledge = calloc((size_t)nb_eks, sizeof(ExtraKnowledge));
+		for (int i = 0; i < nb_eks; i++) {
+			JsonValue *k = json_array_get(eks, i);
+			ExtraKnowledge *ek = &st->extra_knowledge[st->nb_extra_knowledge];
+			ek->npc_id  = json_strdup(json_object_get(k, "npc_id"));
+			ek->fact_id = json_strdup(json_object_get(k, "fact_id"));
+			if (ek->npc_id && ek->fact_id) st->nb_extra_knowledge++;
+			else { free(ek->npc_id); free(ek->fact_id); memset(ek, 0, sizeof(*ek)); }
+		}
+	}
 
 	JsonValue *api = json_object_get(root, "api_usage");
 	st->api_prompt_tokens     = (long)json_number_or(json_object_get(api, "prompt_tokens"), 0);

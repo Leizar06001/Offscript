@@ -48,6 +48,11 @@ typedef struct {
 	 * taire, ce qui n'est jamais le cas quand on s'adresse a lui. */
 	bool        overheard;
 	const char *overheard_speaker;
+
+	/* Cas particulier d'intervention : il est venu expres parler a quelqu'un,
+	 * il a donc bien quelque chose a dire. Celui qui surprend une conversation
+	 * n'a, lui, rien a livrer. */
+	bool        came_to_speak;
 } PromptScene;
 
 char *prompt_build_dialogue(const Story *story, SaveState *save,
@@ -127,5 +132,42 @@ typedef struct {
 
 bool solution_parse(const char *json_text, const Story *story, SolutionResult *out);
 void solution_free(SolutionResult *s);
+
+/* ---- Combler les trous de solubilite, au lancement ---- */
+
+/* Le moteur sait exactement ce qui manque : un fait qui accuse le coupable et
+ * que personne d'autre ne peut donner rend l'enquete injouable (il faut la
+ * preuve pour obtenir l'aveu, et l'aveu pour obtenir la preuve). Il n'y a rien a
+ * deviner la-dessus, donc le modele ne sert qu'a ECRIRE : pour chaque fait
+ * verrouille qu'on lui donne, une piece a conviction dans le ton de l'histoire,
+ * et le second personnage qui la detient — choisi parmi ceux que le moteur
+ * propose, jamais le coupable.
+ * `missing` : les faits verrouilles. Renvoie NULL s'il n'y en a aucun (le cas
+ * d'une histoire bien ecrite : aucun appel n'est alors emis). */
+char *prompt_build_clue_fill(const Story *story, const char *culprit_id,
+                             const char **missing, int nb_missing);
+
+#define CLUE_FILL_MAX 8
+
+typedef struct {
+	char *clue_id;
+	char *name;
+	char *description;
+	char *fact_id;      /* le fait verrouille que cette piece etablit */
+	char *holder_id;    /* le personnage qui la detient (jamais le coupable) */
+} ClueFill;
+
+typedef struct {
+	ClueFill items[CLUE_FILL_MAX];
+	int      nb_items;
+} ClueFillResult;
+
+/* Ne garde que ce qui est utilisable : un fait qui existe et faisait bien partie
+ * des trous demandes, un detenteur qui existe, est place sur la carte et n'est
+ * pas le coupable. Le reste est jete sans bruit — le moteur reverifie de toute
+ * facon la solubilite apres application. */
+bool clue_fill_parse(const char *json_text, const Story *story, const char *culprit_id,
+                     const char **missing, int nb_missing, ClueFillResult *out);
+void clue_fill_free(ClueFillResult *r);
 
 #endif

@@ -587,6 +587,9 @@ int story_list(StoryInfo **out) {
 		info->year          = st->year;
 		info->nb_characters = st->nb_characters;
 		info->path          = file;
+		/* Un culprit_id ecrit dans l'histoire fige la reponse ; NULL veut dire
+		 * qu'elle est tiree au sort a chaque nouvelle partie. */
+		info->fixed_culprit = (st->culprit_id && *st->culprit_id);
 
 		/* N'importe quelle partie compte, pas seulement un ancien "save.json" :
 		 * les sauvegardes portent maintenant le nom du joueur. */

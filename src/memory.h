@@ -79,6 +79,26 @@ typedef struct {
 	bool has_world;
 } NpcState;
 
+/* Une piece a conviction ecrite par le modele au lancement, faute d'en trouver
+ * une dans l'histoire pour un fait qui accuse le coupable. Meme forme qu'un
+ * indice d'auteur (story.h) : elle est versee dans la Story en memoire et le
+ * moteur ne fait plus la difference. */
+typedef struct {
+	char  *id;
+	char  *name;
+	char  *description;
+	char **reveals_fact_ids;
+	int    nb_reveals;
+} GeneratedClue;
+
+/* Un fait donne a un second personnage, pour qu'il ne depende plus du seul
+ * coupable. Une piece a conviction ne suffit pas : dans ce moteur, elle n'est
+ * sortable que par quelqu'un qui connait deja l'un des faits qu'elle etablit. */
+typedef struct {
+	char *npc_id;
+	char *fact_id;
+} ExtraKnowledge;
+
 typedef struct {
 	int   save_version;
 	char *story_id;
@@ -122,6 +142,19 @@ typedef struct {
 	char **culprit_fact_ids;
 	int    nb_culprit_facts;
 
+	/* Complements ecrits par le modele au lancement, quand un element a charge
+	 * n'etait accessible que par la bouche du coupable — l'interblocage qui rend
+	 * une enquete injouable (il faut la preuve pour l'aveu, l'aveu pour la
+	 * preuve). Ils vivent ICI et non dans le fichier d'histoire : ils dependent
+	 * du coupable tire, donc de la partie, et l'histoire reste la verite de
+	 * l'auteur, partagee par toutes les sauvegardes.
+	 * story_apply_additions() les verse dans la Story chargee en memoire, ou le
+	 * reste du moteur ne voit plus la difference. */
+	GeneratedClue  *gen_clues;
+	int             nb_gen_clues;
+	ExtraKnowledge *extra_knowledge;
+	int             nb_extra_knowledge;
+
 	NpcState *npcs;
 	int       nb_npcs;
 } SaveState;
@@ -152,6 +185,18 @@ void save_list_free(SaveInfo *list, int count);
 /* Nouvelle partie: un etat vierge pour chaque personnage. Tire le coupable
  * parmi mystery.suspect_ids si l'histoire laisse culprit_id a null. */
 SaveState *save_new(const Story *story, const char *player_name);
+
+/* Verse dans l'histoire chargee en memoire les complements ecrits par le modele
+ * au lancement de CETTE partie : indices ajoutes, faits donnes a un second
+ * personnage. Le fichier de l'auteur n'est jamais touche — la Story ne vit que
+ * le temps de la session, et le reste du moteur n'a alors aucune raison de
+ * distinguer un indice genere d'un indice d'auteur.
+ * Idempotent : un deuxieme appel n'ajoute pas de doublon. A appeler juste apres
+ * save_load, puis apres chaque generation.
+ * N'ajoute jamais de personnage ni de fait, seulement des indices et des
+ * associations vers des faits qui existent deja ; et ne reloue jamais le tableau
+ * `characters`, pour que les NPC qui pointent dedans restent valides. */
+void story_apply_additions(Story *story, const SaveState *save);
 
 /* Charge une sauvegarde. Les personnages absents du fichier sont ajoutes
  * vierges, ce qui permet d'enrichir une histoire sans casser les parties

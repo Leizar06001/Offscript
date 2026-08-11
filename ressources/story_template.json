@@ -8,9 +8,14 @@
     "que vous lui donnez dans knowledge.known_fact_ids. Tout ce qui evolue en jeu (memoire,",
     "relations, secrets laches, positions) vit dans la sauvegarde, jamais ici.",
     "",
-    "Pour que l'enquete soit soluble : chaque fait a charge doit pouvoir etre obtenu de",
-    "quelqu'un. Si un fait n'est dans le known_fact_ids de personne et dans aucun indice,",
-    "le joueur ne pourra jamais l'etablir, et le coupable n'avouera donc jamais."
+    "POUR QUE L'ENQUETE SOIT SOLUBLE, une seule regle, mais elle ne se rattrape pas :",
+    "chaque fait a charge doit avoir DEUX sources independantes du coupable. Le coupable",
+    "est tire au sort a chaque partie et n'avoue que confronte a des preuves : si lui seul",
+    "connait ce qui l'accuse, il faut la preuve pour obtenir l'aveu et l'aveu pour obtenir",
+    "la preuve. Une deuxieme source = une autre personne qui connait le fait, ou une piece",
+    "a conviction qu'un autre peut sortir (voir _aide_clues).",
+    "Un fait qui n'est dans le known_fact_ids de personne et dans aucun indice n'existe",
+    "carrement pas : le joueur ne pourra jamais l'etablir."
   ],
   "schema_version": "1.0",
   "story": {
@@ -80,8 +85,15 @@
         "position_in_case : sa place dans l'affaire, envoyee au modele.",
         "alibi : mettez null s'il n'en a pas. weakness n'est jamais dit spontanement.",
         "secrets : ce qu'il cache. can_hide=true -> il nie tant qu'on ne lui oppose pas de preuve.",
+        "  fact_id doit AUSSI figurer dans knowledge.known_fact_ids : c'est un fait qu'il connait,",
+        "    et qu'il tait. reveal_conditions : ce qui doit exister pour qu'il lache (un id de",
+        "    piece a conviction de \"clues\", ou une note libre du genre 'confiance_elevee').",
+        "    Le moteur ne les verifie pas encore ; elles servent au modele et a vous relire.",
         "knowledge.known_fact_ids : LA cle du jeu. Il ne peut reveler que ces faits.",
+        "  Un fait qu'un seul personnage connait devient inaccessible s'il est le coupable :",
+        "    donnez-le a quelqu'un d'autre, ou couvrez-le par un indice (voir _aide_clues).",
         "  unknown_fact_ids n'est jamais envoye au modele : le nommer lui apprendrait qu'il existe.",
+        "    N'y mettez pas un fait deja present dans known_fact_ids : la fiche se contredirait.",
         "dialogue.tone et speech_rules : sa voix. C'est ce qui le distingue le plus des autres.",
         "game : ou il se tient. room = identifiant d'une piece de map.rooms (le moteur lui trouve",
         "  une place libre). x/y restent acceptes si vous voulez un endroit precis.",
@@ -114,12 +126,15 @@
           "id": "secret_a",
           "fact_id": "fait_a_charge",
           "can_hide": true,
-          "reveal_conditions": []
+          "reveal_conditions": [
+            "piece_a_charge"
+          ]
         }
       ],
       "knowledge": {
         "known_fact_ids": [
-          "fait_exemple"
+          "fait_exemple",
+          "fait_a_charge"
         ],
         "unknown_fact_ids": []
       },
@@ -163,8 +178,15 @@
         "weakness": "La faille, qu'il ne mentionne jamais de lui-meme"
       },
       "secrets": [],
+      "_aide_knowledge": [
+        "Les deux personnages connaissent les deux faits : c'est volontaire, et c'est la regle",
+        "  a retenir. Chaque fait a ainsi DEUX sources, donc l'enquete reste soluble quel que",
+        "  soit le coupable tire. Avec plus de personnages, repartissez : il suffit que chaque",
+        "  fait a charge soit connu de deux personnes, ou d'une personne plus un indice."
+      ],
       "knowledge": {
         "known_fact_ids": [
+          "fait_exemple",
           "fait_a_charge"
         ],
         "unknown_fact_ids": []
@@ -186,9 +208,86 @@
       }
     }
   ],
-  "relationships": [],
-  "timeline": [],
-  "clues": [],
+  "_aide_relationships": [
+    "relationships : qui est lie a qui, et comment. Purement documentaire pour l'instant :",
+    "  le moteur le lit mais ne l'envoie pas encore au modele. Ce qu'un personnage pense",
+    "  d'un autre passe par son personality / position_in_case / motives.",
+    "  A remplir quand meme : c'est ce qui vous evite des mobiles qui se contredisent."
+  ],
+  "relationships": [
+    {
+      "from": "personnage_a",
+      "to": "la_victime",
+      "type": "collegues_en_conflit",
+      "description": "Ce qui les liait, et ce qui s'etait gate."
+    }
+  ],
+  "_aide_timeline": [
+    "timeline : le deroule des faits, dans l'ordre. Envoye au modele UNE fois par partie,",
+    "  quand il ecrit la resolution : c'est ce qui lui permet de rendre l'affaire coherente",
+    "  au lieu d'improviser. Les personnages, eux, ne le recoivent jamais.",
+    "  time  : format libre, mais restez homogene ('22:47' partout).",
+    "  event : la phrase que vous, auteur, tenez pour vraie.",
+    "  fact_ids : les faits que cet evenement etablit. Facultatif, mais c'est ce qui relie",
+    "    votre chronologie a ce que le joueur peut apprendre."
+  ],
+  "timeline": [
+    {
+      "time": "22:00",
+      "event": "Ce qui s'est passe d'abord.",
+      "fact_ids": [
+        "fait_exemple"
+      ]
+    },
+    {
+      "time": "22:15",
+      "event": "Ce qui a rendu le crime possible.",
+      "fact_ids": [
+        "fait_a_charge"
+      ]
+    }
+  ],
+  "_aide_clues": [
+    "clues : les pieces a conviction (journaux, mail, rapport, enregistrement, objet).",
+    "  C'est le SECOND chemin vers un fait, et souvent le seul qui sauve l'enquete.",
+    "",
+    "COMMENT CA MARCHE, exactement :",
+    "  - Un personnage peut sortir une piece s'il connait AU MOINS UN des faits qu'elle",
+    "    etablit (reveals_fact_ids croise son knowledge.known_fact_ids). Personne ne la",
+    "    connait ? Alors personne ne peut la produire, et elle n'existe pas pour le jeu.",
+    "  - Il ne la mentionne jamais de lui-meme : le joueur doit la demander.",
+    "  - Quand il la sort, le moteur credite le joueur de TOUS ses reveals_fact_ids d'un coup.",
+    "  - Une piece qui etablit un fait accusant son detenteur, il ne la sort que contraint.",
+    "  - discoverable: false = elle existe dans votre dossier mais reste hors de portee.",
+    "",
+    "LA REGLE A NE PAS OUBLIER : un fait a charge ne doit pas dependre du seul coupable.",
+    "  Le coupable n'avoue que confronte a des preuves ; si lui seul peut les fournir,",
+    "  l'enquete est verrouillee. Donnez donc a chaque fait DEUX sources : une autre",
+    "  personne qui le connait, ou une piece qu'un autre peut sortir.",
+    "  Le moteur ecarte de lui-meme les elements a charge inatteignables, et le briefing",
+    "  affiche « aucune preuve n'est accessible sans l'aveu » quand il n'en reste aucun.",
+    "  Voir ressources/projet_echo pour une histoire ou chaque fait a deux sources."
+  ],
+  "clues": [
+    {
+      "id": "piece_exemple",
+      "name": "Nom court, tel qu'il s'affiche dans le fil",
+      "description": "Ce que la piece montre, en une phrase. Le modele la lit pour en parler.",
+      "reveals_fact_ids": [
+        "fait_exemple"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "piece_a_charge",
+      "name": "La piece qui accuse",
+      "description": "Ce qu'elle prouve, et pourquoi celui qui la detient prefererait la garder.",
+      "reveals_fact_ids": [
+        "fait_a_charge"
+      ],
+      "discoverable": true
+    }
+  ],
   "map": {
     "_aide": [
       "rows : le plan, une chaine par ligne. '2' = mur,",
@@ -199,7 +298,8 @@
       "  Le moteur remplit la zone depuis ce point : une piece en L se decrit comme un rectangle.",
       "  Les portes sont trouvees toutes seules et reliees aux deux pieces qu'elles separent.",
       "IMPORTANT : le joueur avance de deux colonnes a la fois. Une piece large d'une seule",
-      "  colonne utile serait donc inatteignable."
+      "  colonne utile serait donc inatteignable. L'affichage est sur un terminal, les caracteres sont plus hauts que larges, donc une piece de 3 colonnes est deja tres etroite.",
+      "  il faut eviter de faire des pieces trop tordues"
     ],
     "width": 24,
     "rows": [
@@ -267,6 +367,12 @@
       "locked_until_end": true
     }
   },
+  "_aide_runtime_template": [
+    "runtime_template : rien a remplir, et vous pouvez meme le supprimer. Le moteur ne le",
+    "  lit pas : il montre seulement la forme de ce qui sera ecrit dans la sauvegarde",
+    "  (saves/<histoire>/<joueur>.json) une fois la partie lancee.",
+    "  Tout ce qui evolue vit la-bas, jamais dans ce fichier-ci."
+  ],
   "runtime_template": {
     "session_id": null,
     "player": {
@@ -278,5 +384,20 @@
     "world_flags": {},
     "npc_state": {}
   },
+  "_aide_memory_config": [
+    "memory_config : reglages de la memoire des personnages. null = les valeurs ci-dessous,",
+    "  qui conviennent a la plupart des enquetes. Ce sont aussi les leviers de consommation :",
+    "  recent_message_limit (10) : messages de la conversation rejoues a chaque replique.",
+    "    Baisser a 6 fait oublier plus vite mais allege chaque appel.",
+    "  long_term_memory_limit (30) : souvenirs gardes par personnage, les plus faibles sont",
+    "    oublies au-dela.",
+    "  memories_in_prompt (5) : souvenirs joints a une replique, choisis par pertinence.",
+    "  minimum_importance_to_store (3) : en dessous, l'echange ne laisse aucun souvenir.",
+    "    Monter a 4 garde moins de banalites.",
+    "  memory_analysis_interval (4) : un echange sur 4 declenche la passe d'analyse (le 2e",
+    "    appel au modele, celui qui met a jour carnet, relations et faits appris). Monter a 6",
+    "    coute moins cher, mais le carnet suit de plus loin.",
+    "Pour l'activer, remplacez null par : { \"recent_message_limit\": 10, ... }"
+  ],
   "memory_config": null
 }

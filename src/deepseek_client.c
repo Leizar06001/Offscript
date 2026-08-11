@@ -55,6 +55,11 @@ void deepseek_usage_set(long prompt_tokens, long completion_tokens, long calls) 
 	g_usage.prompt_tokens     = prompt_tokens;
 	g_usage.completion_tokens = completion_tokens;
 	g_usage.calls             = calls;
+	/* Les compteurs de cache ne viennent pas de la sauvegarde : ils repartent de
+	 * zero avec la session. Les garder ferait comparer les succes de la partie
+	 * precedente aux echecs de la nouvelle apres un [R]. */
+	g_usage.cache_hit_tokens  = 0;
+	g_usage.cache_miss_tokens = 0;
 	pthread_mutex_unlock(&g_usage_lock);
 }
 
@@ -66,15 +71,35 @@ double deepseek_usage_cost(const DeepseekUsage *u) {
 
 /* Le compte est tenu par les fils de requete : il lui faut son propre verrou.
  * `usage` n'est pas toujours present (une reponse en erreur n'en a pas). */
-static void usage_add(JsonValue *usage) {
+static void usage_add(JsonValue *usage, const char *raw_json) {
 	if (!usage) return;
+
+	/* Les noms des compteurs de cache dependent du fournisseur, et un nom qui ne
+	 * correspond a rien est indiscernable d'un fournisseur qui ne cache pas :
+	 * dans les deux cas la barre du bas n'affiche rien. OFFSCRIPT_DEBUG_USAGE
+	 * ecrit la reponse brute pour trancher sur un vrai appel plutot que de
+	 * deviner. L'ecran appartient a ncurses : on passe par un fichier. */
+	if (raw_json && getenv("OFFSCRIPT_DEBUG_USAGE")) {
+		FILE *f = fopen("/tmp/offscript_usage.log", "a");
+		if (f) { fprintf(f, "%s\n", raw_json); fclose(f); }
+	}
+
 	long in  = (long)json_number_or(json_object_get(usage, "prompt_tokens"), 0);
 	long out = (long)json_number_or(json_object_get(usage, "completion_tokens"), 0);
 	if (in == 0 && out == 0) return;
 
+	/* Le fournisseur met en cache le prefixe des requetes et facture ces jetons
+	 * une fraction du prix. Absent des vieilles reponses ou d'un autre
+	 * fournisseur : on laisse alors les compteurs a zero, et l'affichage
+	 * n'annonce rien plutot que d'annoncer 0%. */
+	long hit  = (long)json_number_or(json_object_get(usage, "prompt_cache_hit_tokens"), 0);
+	long miss = (long)json_number_or(json_object_get(usage, "prompt_cache_miss_tokens"), 0);
+
 	pthread_mutex_lock(&g_usage_lock);
 	g_usage.prompt_tokens     += in;
 	g_usage.completion_tokens += out;
+	g_usage.cache_hit_tokens  += hit;
+	g_usage.cache_miss_tokens += miss;
 	g_usage.calls++;
 	pthread_mutex_unlock(&g_usage_lock);
 }
@@ -325,7 +350,7 @@ static void handle_sse_event(StreamCtx *ctx, const char *payload, size_t payload
 
 	JsonValue *chunk = json_parse(line);
 	/* Le dernier fragment d'un flux porte la consommation de tout l'appel. */
-	usage_add(json_object_get(chunk, "usage"));
+	usage_add(json_object_get(chunk, "usage"), line);
 	JsonValue *choices = json_object_get(chunk, "choices");
 	if (json_array_count(choices) > 0) {
 		JsonValue *delta = json_object_get(json_array_get(choices, 0), "delta");
@@ -441,7 +466,7 @@ static void *ask_thread_main(void *arg) {
 		} else {
 			/* Reponse complete: on en extrait le texte du modele. */
 			JsonValue *root = json_parse(ctx.content);
-			usage_add(json_object_get(root, "usage"));
+			usage_add(json_object_get(root, "usage"), ctx.content);
 			JsonValue *choices = json_object_get(root, "choices");
 			if (json_array_count(choices) > 0) {
 				JsonValue *msg = json_object_get(json_array_get(choices, 0), "message");

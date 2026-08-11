@@ -161,27 +161,51 @@ void create_windows(Game *game){
 }
 
 /* Un intitule pose dans le trait du cadre : chaque zone se nomme, au lieu de
- * laisser deviner ce qu'on regarde. */
-static void box_title(WINDOW *win, const char *title){
-	wattron(win, COLOR_PAIR(PAIR_HEADING) | A_BOLD);
+ * laisser deviner ce qu'on regarde. `pair` suit l'etat du cadre. */
+static void box_title(WINDOW *win, const char *title, int pair){
+	wattron(win, COLOR_PAIR(pair) | A_BOLD);
 	mvwprintw(win, 0, 3, " %s ", title);
-	wattroff(win, COLOR_PAIR(PAIR_HEADING) | A_BOLD);
+	wattroff(win, COLOR_PAIR(pair) | A_BOLD);
+}
+
+/* Le cadre allume est celui sur lequel les touches agissent — la meme regle que
+ * la zone de saisie, qui verdit quand ce qu'on tape part dans la question. Hors
+ * mode discussion, les fleches deplacent le personnage : c'est le PLAN qui
+ * repond. En mode discussion, elles bougent le curseur et le texte part dans
+ * l'ENTRETIEN. On voit donc l'etat du clavier sans avoir a essayer une touche.
+ * A rappeler a chaque changement de mode : le cadre n'est pas redessine par le
+ * rendu de la carte. */
+void draw_window_frames(Game *game){
+	if (!game->display.main_win || !game->display.chat_box) return;
+
+	int map_pair  = game->discussion_mode ? PAIR_BORDER : PAIR_GOOD;
+	int chat_pair = game->discussion_mode ? PAIR_GOOD   : PAIR_BORDER;
+
+	wattron(game->display.main_win, COLOR_PAIR(map_pair));
+	box(game->display.main_win, 0, 0);
+	wattroff(game->display.main_win, COLOR_PAIR(map_pair));
+	box_title(game->display.main_win, "PLAN",
+	          game->discussion_mode ? 9 : PAIR_GOOD);
+
+	wattron(game->display.chat_box, COLOR_PAIR(chat_pair));
+	box(game->display.chat_box, 0, 0);
+	wattroff(game->display.chat_box, COLOR_PAIR(chat_pair));
+	box_title(game->display.chat_box, "ENTRETIEN",
+	          game->discussion_mode ? PAIR_GOOD : 9);
+
+	wrefresh(game->display.main_win);
+	wrefresh(game->display.chat_box);
+	/* Le fil est une sous-fenetre du cadre : rafraichir le cadre seul le
+	 * laisserait recouvert. */
+	if (game->display.chat) {
+		redrawwin(game->display.chat);
+		wrefresh(game->display.chat);
+	}
 }
 
 void draw_windows(Game *game){
-	const int box_color = 24;
-
-	wattron(game->display.main_win, COLOR_PAIR(box_color));
-    box(game->display.main_win, 0, 0);
-	wattroff(game->display.main_win, COLOR_PAIR(box_color));
-	box_title(game->display.main_win, "PLAN");
-
+	draw_window_frames(game);
 	draw_input(game);
-
-	wattron(game->display.chat_box, COLOR_PAIR(box_color));
-	box(game->display.chat_box, 0, 0);
-	wattroff(game->display.chat_box, COLOR_PAIR(box_color));
-	box_title(game->display.chat_box, "ENTRETIEN");
 
 	refresh();                 // Rafraîchir l'écran principal
     wrefresh(game->display.main_win);              // Afficher la fenêtre
@@ -288,6 +312,20 @@ void print_usage_bar(Game *game){
 	attron(COLOR_PAIR(PAIR_TEXT));
 	printw("%.1fk", (double)u.completion_tokens / 1000.0);
 	attroff(COLOR_PAIR(PAIR_TEXT));
+
+	/* Part de l'entree servie par le cache du fournisseur : c'est ce qui dit si
+	 * l'ordre du prompt tient (partie stable en tete). Rien n'est affiche quand
+	 * l'API ne rapporte pas ces compteurs — mieux vaut le silence qu'un 0%
+	 * trompeur. Compte de la session, pas de la partie. */
+	long cache_total = u.cache_hit_tokens + u.cache_miss_tokens;
+	if (cache_total > 0) {
+		attron(COLOR_PAIR(9));
+		printw("   cache ");
+		attroff(COLOR_PAIR(9));
+		attron(COLOR_PAIR(PAIR_GOOD));
+		printw("%.0f%%", 100.0 * (double)u.cache_hit_tokens / (double)cache_total);
+		attroff(COLOR_PAIR(PAIR_GOOD));
+	}
 
 	attron(COLOR_PAIR(9));
 	printw("   ~");
@@ -409,13 +447,16 @@ int game_loop(Game *game) {
 				break;
 
 			case IN_KEY_MODE:
-				/* Le cadre de saisie change d'aspect avec le mode : il doit
-				 * etre redessine en meme temps que la barre du haut. */
+				/* Les trois cadres changent d'aspect avec le mode (le PLAN,
+				 * l'ENTRETIEN et la saisie) : ils sont redessines en meme temps
+				 * que la barre du haut. */
 				pthread_mutex_lock(&game->display.m_display_update);
 				print_header(game);
+				draw_window_frames(game);
 				pthread_mutex_unlock(&game->display.m_display_update);
 				print_talk_hint(game);
 				draw_input(game);
+				move_cursor_back(game);
 				break;
 
 			case IN_KEY_NOTIF:
@@ -436,8 +477,38 @@ int game_loop(Game *game) {
 		 * resolution recouvrirait les mots memes de l'aveu. */
 		if (game->confession_npc >= 0 && !game->pending_req) {
 			game->confession_npc = -1;
+
+			/* C'est au joueur de tourner la page : la resolution recouvrait le
+			 * fil une seconde et demie apres la derniere phrase de l'aveu, donc
+			 * la partie s'arretait avant qu'on ait fini de le lire. */
+			chat_add(game, CHAT_SYSTEM, -1,
+			         "L'enquete est terminee. [Entree] pour la resolution.");
 			chat_render(game);
-			napms(1500);
+			move_cursor_back(game);
+
+			nodelay(stdscr, FALSE);
+			int ch, dead_reads = 0;
+			while ((ch = wgetch(stdscr)) != '\n' && ch != KEY_ENTER) {
+				/* Entree fermee (stdin redirige) : wgetch rend ERR en boucle et
+				 * personne ne viendra appuyer sur une touche. */
+				if (ch == ERR && ++dead_reads > 100) break;
+
+				/* On attend pour laisser LIRE : il faut donc pouvoir remonter
+				 * dans le fil, un aveu et les reactions qui l'entourent tiennent
+				 * rarement dans la hauteur visible. */
+				if (ch == KEY_PPAGE) chat_scroll(game, 5);
+				else if (ch == KEY_NPAGE) chat_scroll(game, -5);
+				else if (ch == KEY_MOUSE) {
+					MEVENT ev;
+					if (getmouse(&ev) == OK) {
+						if (ev.bstate & BUTTON4_PRESSED)      chat_scroll(game, 3);
+						else if (ev.bstate & BUTTON5_PRESSED) chat_scroll(game, -3);
+					}
+				}
+				chat_render(game);
+			}
+			wtimeout(stdscr, INPUT_TIMEOUT_MS);
+
 			if (menu_show_solution(game, true)) server_running = 0;
 			else print_header(game);
 		}
@@ -504,17 +575,22 @@ int start_game(Game *game){
 	init_color(20, 700, 700, 700);		// gris clair : texte secondaire lisible
 	init_pair(9, 20, COLOR_BLACK);		// dark text
 
+	/* Une couleur par personnage : c'est elle qui porte TOUTE sa replique dans
+	 * le fil (voir chat_render), pas seulement son nom. Les teintes sourdes
+	 * d'origine passaient sur la carte mais rendaient les dialogues penibles a
+	 * lire sur fond noir : chaque teinte garde son identite, montee au niveau
+	 * de luminosite d'un texte confortable. */
 	short pale_colors[10] = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
-    init_color(10, 300, 300, 600);  // steel blue
-    init_color(11, 600, 600, 200);  // dull mustard
-    init_color(12, 450, 300, 600);  // dusty purple
-    init_color(13, 300, 600, 600);  // dark aqua
-    init_color(14, 600, 500, 250);  // clay brown
-    init_color(15, 500, 500, 600);  // shadow lilac
-    init_color(16, 600, 400, 400);  // rust pink
-    init_color(17, 500, 600, 350);  // dull lime
-    init_color(18,  600, 300, 300);  // brick rose
-    init_color(19,  300, 600, 300);  // murky green
+    init_color(10, 500, 650, 1000);  // steel blue
+    init_color(11, 900, 850, 400);   // mustard
+    init_color(12, 700, 450, 1000);  // violet
+    init_color(13, 450, 900, 900);   // aqua
+    init_color(14, 950, 760, 450);   // clay amber
+    init_color(15, 800, 850, 1000);  // lilac pale
+    init_color(16, 1000, 620, 750);  // rose
+    init_color(17, 760, 950, 550);   // lime
+    init_color(18, 1000, 620, 400);  // brick orange
+    init_color(19, 520, 950, 520);   // green
 	for (short i = 0; i < 10; i++) {
         init_pair(pale_colors[i], pale_colors[i], COLOR_BLACK);
     }

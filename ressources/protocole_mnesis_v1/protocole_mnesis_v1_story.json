@@ -20,8 +20,8 @@
       "  'Detective Poireau', 'Commissaire Poireau'...",
       "central_questions : affichees comme objectifs dans le carnet."
     ],
-    "id": "protocole_mnesis",
-    "title": "Protocole Mnésis",
+    "id": "protocole_mnesis_v1",
+    "title": "Protocole Mnésis V1",
     "genre": [
       "enquête",
       "science-fiction",

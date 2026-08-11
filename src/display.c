@@ -142,7 +142,12 @@ static void draw_entities(Game *game, int center_x, int center_y){
 
 		int sx = npc->x - game->player.x + center_x + game->player.y - npc->y;
 		int sy = npc->y - game->player.y + center_y;
-		if (sx < 1 || sx >= (int)game->display.width - 1) continue;
+		/* Un emoji occupe DEUX colonnes : il faut donc la place pour sx ET
+		 * sx+1 a l'interieur du cadre. Accepter sx = largeur-2 revenait a
+		 * ecrire la moitie droite du personnage sur le trait du cadre, qui
+		 * n'est redessine qu'au demarrage : le bord droit y perdait des
+		 * morceaux definitivement. */
+		if (sx < 1 || sx + 1 >= (int)game->display.width - 1) continue;
 		if (sy < 1 || sy >= (int)game->display.height - 1) continue;
 
 		ents[n].screen_x = sx;
@@ -321,6 +326,20 @@ static void draw_map_iso(Game *game){
 	 * et il fallait des cas particuliers pour que le joueur ne s'efface pas
 	 * lui-meme. Trier par profondeur supprime tout cela. */
 	draw_entities(game, center_x, center_y);
+
+	/* Ceinture et bretelles : la colonne du bord droit est reecrite a chaque
+	 * image. Le cadre n'est trace qu'a la creation des fenetres, donc n'importe
+	 * quel debordement d'un caractere large y laisserait un trou permanent —
+	 * y compris celui du joueur si le terminal devient tres etroit. */
+	wattroff(game->display.main_win, A_BOLD);
+	/* Meme couleur que le reste du cadre, qui suit le mode en cours (voir
+	 * draw_window_frames) : sinon la colonne de droite resterait grise sur un
+	 * cadre allume. */
+	int frame_pair = game->discussion_mode ? PAIR_BORDER : PAIR_GOOD;
+	wattron(game->display.main_win, COLOR_PAIR(frame_pair));
+	for (size_t y = 1; y < game->display.height - 1; y++)
+		mvwaddch(game->display.main_win, y, game->display.width - 1, ACS_VLINE);
+	wattroff(game->display.main_win, COLOR_PAIR(frame_pair));
 
 	wattroff(game->display.main_win, COLOR_PAIR(8));
 	wrefresh(game->display.main_win);
@@ -514,6 +533,22 @@ int print_key_hint(int y, int x, const char *prefix, const char *key, const char
 /* Ligne 1 de l'ecran, entre l'en-tete et la carte : ou l'on se trouve et qui
  * est la. On parle a qui partage la piece, donc c'est cette ligne qui dit a
  * qui la prochaine question s'adressera. */
+/* Un morceau de la ligne, avec ses attributs. La ligne est d'abord assemblee,
+ * puis mesuree, puis dessinee : c'est le seul moyen de la centrer sans decrire
+ * son contenu deux fois — une mesure ecrite a part finirait par mentir des que
+ * le texte change. */
+typedef struct {
+	const char *text;
+	int         attrs;
+} HintSeg;
+
+#define HINT_MAX_SEGS (4 + NPC_MAX * 3 + 4)
+
+/* Ligne 0 : la barre des touches. Ligne 1 : laissee vide, pour que la barre et
+ * cette ligne ne se lisent pas comme un seul bloc. Les fenetres commencent a la
+ * ligne 3 (create_windows), donc la 2 est libre. */
+#define TALK_HINT_ROW 2
+
 void print_talk_hint(Game *game){
 	int list[NPC_MAX];
 	int n = npc_in_player_room(game, list, NPC_MAX);
@@ -521,59 +556,116 @@ void print_talk_hint(Game *game){
 	 * ferait dependre du nombre de redessins. */
 	int idx = game->talk_target;
 
-	// clrtoeol: sinon un nom plus court laisse la fin du precedent affichee
-	move(1, 0);
-	clrtoeol();
+	HintSeg seg[HINT_MAX_SEGS];
+	int nb = 0;
 
-	int col = 0;
+	/* Les textes composes ont besoin de vivre jusqu'au dessin. */
+	char room_chip[96];
+	char names[NPC_MAX][96];
+
 	const char *room = map_room_name(&game->map, map_room_at(&game->map,
 	                                 game->player.x, game->player.y));
 	if (room && *room){
-		attron(COLOR_PAIR(PAIR_HEADING) | A_BOLD);
-		mvprintw(1, col, "%s", room);
-		attroff(COLOR_PAIR(PAIR_HEADING) | A_BOLD);
-		col += text_display_cols(room);
+		/* La piece en pastille inversee : cette ligne se perdait entre la barre
+		 * du haut et le cadre de la carte, alors qu'elle dit l'essentiel — ou on
+		 * est, et a qui on va parler. */
+		snprintf(room_chip, sizeof(room_chip), " %s ", room);
+		seg[nb].text  = room_chip;
+		seg[nb].attrs = COLOR_PAIR(PAIR_HEADING) | A_REVERSE | A_BOLD;
+		nb++;
 	}
 
 	if (n == 0){
-		attron(COLOR_PAIR(9));
-		mvprintw(1, col, "   personne ici");
-		attroff(COLOR_PAIR(9));
-		refresh();
-		return;
-	}
+		seg[nb].text  = "   personne ici";
+		seg[nb].attrs = COLOR_PAIR(9);
+		nb++;
+	} else {
+		seg[nb].text  = "   avec ";
+		seg[nb].attrs = COLOR_PAIR(9);
+		nb++;
 
-	attron(COLOR_PAIR(9));
-	mvprintw(1, col, "   avec ");
-	attroff(COLOR_PAIR(9));
-	col += 8;
+		/* Celui a qui la question s'adressera porte un chevron et son nom en
+		 * inverse : souligne et gras ne suffisaient pas a le distinguer des
+		 * autres noms, qui portent deja leur propre couleur. */
+		for (int i = 0; i < n && nb + 3 < HINT_MAX_SEGS; i++){
+			const char *name = npc_display_name(&game->npcs[list[i]]);
+			bool aimed = (list[i] == idx);
+			int  pair  = COLOR_PAIR(npc_color(list[i]));
 
-	/* Celui a qui la question s'adressera est souligne : quand plusieurs
-	 * personnes sont la, il faut voir qui repondra avant d'appuyer. */
-	for (int i = 0; i < n; i++){
-		const char *name = npc_display_name(&game->npcs[list[i]]);
-		bool aimed = (list[i] == idx);
-		int attrs = COLOR_PAIR(npc_color(list[i])) | (aimed ? A_BOLD | A_UNDERLINE : A_DIM);
-		attron(attrs);
-		mvprintw(1, col, "%s", name);
-		attroff(attrs);
-		col += text_display_cols(name);
-		if (i + 1 < n){
-			attron(COLOR_PAIR(9));
-			mvprintw(1, col, ", ");
-			attroff(COLOR_PAIR(9));
-			col += 2;
+			if (aimed){
+				seg[nb].text  = "▸";           /* ▸ */
+				seg[nb].attrs = pair | A_BOLD;
+				nb++;
+			}
+			snprintf(names[i], sizeof(names[i]), aimed ? " %s " : "%s", name);
+			seg[nb].text  = names[i];
+			seg[nb].attrs = pair | (aimed ? (A_BOLD | A_REVERSE) : A_DIM);
+			nb++;
+
+			if (i + 1 < n){
+				seg[nb].text  = ", ";
+				seg[nb].attrs = COLOR_PAIR(9);
+				nb++;
+			}
 		}
+
+		/* Une touche se reconnait a sa couleur, la meme que dans la barre du
+		 * haut : le nom de la touche ressort, son libelle reste discret. */
+		const char *key = (n > 1) ? "[Tab]" : "[Entree]";
+		seg[nb].text = "   ";     seg[nb].attrs = COLOR_PAIR(9);         nb++;
+		seg[nb].text = key;       seg[nb].attrs = COLOR_PAIR(PAIR_WARN); nb++;
+
+		/* Le libelle s'abrege plutot que de deborder : avec deux personnes dans
+		 * la piece, la version longue depasse les 80 colonnes et se faisait
+		 * couper par la droite — donc la touche restait, mais amputee. On garde
+		 * le plus long qui tient. */
+		int used = 0;
+		for (int i = 0; i < nb; i++) used += text_display_cols(seg[i].text);
+
+		const char *labels[4];
+		if (n > 1) {
+			labels[0] = " changer d'interlocuteur, ou nommez-le";
+			labels[1] = " changer d'interlocuteur";
+			labels[2] = " changer";
+			labels[3] = "";
+		} else if (game->discussion_mode) {
+			labels[0] = " envoyer"; labels[1] = " envoyer";
+			labels[2] = " envoyer"; labels[3] = "";
+		} else {
+			labels[0] = " pour lui parler"; labels[1] = " lui parler";
+			labels[2] = " parler";         labels[3] = "";
+		}
+		const char *label = labels[3];
+		for (int i = 0; i < 4; i++) {
+			if (used + text_display_cols(labels[i]) <= COLS) { label = labels[i]; break; }
+		}
+		seg[nb].text = label;     seg[nb].attrs = COLOR_PAIR(9);         nb++;
 	}
 
-	/* Une touche se reconnait a sa couleur, la meme que dans la barre du
-	 * haut : le nom de la touche ressort, son libelle reste discret. */
-	if (n > 1)
-		col = print_key_hint(1, col, "   ", "[Tab]", " changer d'interlocuteur, ou nommez-le");
-	else if (game->discussion_mode)
-		col = print_key_hint(1, col, "   ", "[Entree]", " envoyer");
-	else
-		col = print_key_hint(1, col, "   ", "[Entree]", " pour lui parler");
+	int total = 0;
+	for (int i = 0; i < nb; i++) total += text_display_cols(seg[i].text);
+
+	/* Centree dans le terminal. Une ligne plus large que l'ecran repart de la
+	 * colonne 0 : la tronquer par la gauche cacherait la piece. */
+	int col = (COLS - total) / 2;
+	if (col < 0) col = 0;
+
+	/* Une ligne vide la separe de la barre des touches, juste au-dessus : les
+	 * deux se lisaient comme un seul bloc. La ligne 2 etait deja libre (les
+	 * fenetres commencent a la 3, voir create_windows), donc rien ne bouge en
+	 * dessous. */
+	move(1, 0);
+	clrtoeol();
+	// clrtoeol: sinon un nom plus court laisse la fin du precedent affichee
+	move(TALK_HINT_ROW, 0);
+	clrtoeol();
+
+	for (int i = 0; i < nb; i++){
+		attron(seg[i].attrs);
+		mvprintw(TALK_HINT_ROW, col, "%s", seg[i].text);
+		attroff(seg[i].attrs);
+		col += text_display_cols(seg[i].text);
+	}
 
 	refresh();
 }

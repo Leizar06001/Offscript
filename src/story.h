@@ -203,6 +203,11 @@ typedef struct {
 	int   year;
 	int   nb_characters;
 	bool  has_save;
+	/* L'auteur a designe le coupable (mystery.solution.culprit_id) : la reponse
+	 * est la meme a chaque partie. Sinon elle est tiree au lancement, et
+	 * l'enquete est rejouable. Le menu l'annonce : ce n'est pas un detail quand
+	 * on choisit de rejouer. */
+	bool  fixed_culprit;
 	char *path;
 } StoryInfo;
 
@@ -216,6 +221,8 @@ void story_list_free(StoryInfo *list, int count);
  * JSON, missing required field, dangling fact id...). */
 Story *story_load(const char *path, char *err, size_t err_size);
 void   story_free(Story *story);
+/* story_apply_additions() est declaree dans memory.h : elle a besoin de la
+ * sauvegarde, et c'est memory.h qui connait les deux. */
 
 const Fact           *story_fact(const Story *s, const char *fact_id);
 const StoryCharacter *story_character(const Story *s, const char *char_id);

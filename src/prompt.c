@@ -18,20 +18,71 @@ static void add_list(StrBuf *sb, const char *label, char **items, int n) {
 /* Ce que le joueur peut reellement obtenir                            */
 /* ------------------------------------------------------------------ */
 
+/* Detenteur d'une piece a conviction : celui qui connait l'un des faits qu'elle
+ * etablit. C'est lui qui a les rapports, les journaux ou le message, donc lui
+ * seul peut la sortir. Sert au prompt de dialogue comme a celui d'analyse : les
+ * deux doivent voir exactement la meme liste. */
+static bool character_holds_clue(const StoryCharacter *ch, const Clue *cl) {
+	for (int k = 0; k < cl->nb_reveals; k++) {
+		for (int f = 0; f < ch->nb_known_facts; f++) {
+			if (strcmp(ch->known_fact_ids[f], cl->reveals_fact_ids[k]) == 0) return true;
+		}
+	}
+	return false;
+}
+
+/* Un personnage absent de la carte ne peut rien dire a personne : le compter
+ * comme source rendait « atteignable » un fait que le joueur ne pouvait pas
+ * obtenir. */
+static bool character_can_tell(const StoryCharacter *c, const char *fact_id,
+                              const char *culprit_id) {
+	if (!c->placed) return false;
+	if (culprit_id && c->id && strcmp(c->id, culprit_id) == 0) return false;
+	for (int k = 0; k < c->nb_known_facts; k++) {
+		if (strcmp(c->known_fact_ids[k], fact_id) == 0) return true;
+	}
+	return false;
+}
+
+/* Une piece a conviction n'apparait pas toute seule : c'est un personnage qui
+ * la sort, et le prompt ne la lui propose que s'il connait l'un des faits
+ * qu'elle etablit (voir « CE QUE TU PEUX MONTRER A L'ENQUETEUR »). Une piece
+ * que seul le coupable detient n'est donc pas un chemin de secours. */
+static bool clue_producible_without(const Story *s, const Clue *cl,
+                                    const char *culprit_id) {
+	if (!cl->discoverable) return false;
+
+	for (int i = 0; i < s->nb_characters; i++) {
+		const StoryCharacter *c = &s->characters[i];
+		if (!c->placed) continue;
+		if (culprit_id && c->id && strcmp(c->id, culprit_id) == 0) continue;
+
+		for (int k = 0; k < cl->nb_reveals; k++) {
+			for (int f = 0; f < c->nb_known_facts; f++)
+				if (strcmp(c->known_fact_ids[f], cl->reveals_fact_ids[k]) == 0) return true;
+			for (int x = 0; x < c->nb_secrets; x++)
+				if (c->secrets[x].fact_id &&
+				    strcmp(c->secrets[x].fact_id, cl->reveals_fact_ids[k]) == 0) return true;
+		}
+	}
+	return false;
+}
+
 bool story_fact_obtainable_without(const Story *s, const char *fact_id,
                                    const char *culprit_id) {
 	if (!s || !fact_id) return false;
 
+	/* Quelqu'un d'autre le sait et peut le dire. */
 	for (int i = 0; i < s->nb_characters; i++) {
-		const StoryCharacter *c = &s->characters[i];
-		if (culprit_id && c->id && strcmp(c->id, culprit_id) == 0) continue;
-		for (int k = 0; k < c->nb_known_facts; k++) {
-			if (strcmp(c->known_fact_ids[k], fact_id) == 0) return true;
-		}
+		if (character_can_tell(&s->characters[i], fact_id, culprit_id)) return true;
 	}
+
+	/* Ou une piece a conviction l'etablit, et quelqu'un d'autre peut la sortir. */
 	for (int i = 0; i < s->nb_clues; i++) {
-		for (int k = 0; k < s->clues[i].nb_reveals; k++) {
-			if (strcmp(s->clues[i].reveals_fact_ids[k], fact_id) == 0) return true;
+		const Clue *cl = &s->clues[i];
+		for (int k = 0; k < cl->nb_reveals; k++) {
+			if (strcmp(cl->reveals_fact_ids[k], fact_id) != 0) continue;
+			if (clue_producible_without(s, cl, culprit_id)) return true;
 		}
 	}
 	return false;
@@ -106,22 +157,13 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 			sb_addf(&sb, " entre %s et %s", story->crime_time_start, story->crime_time_end);
 		sb_add(&sb, ".\n");
 	}
-	if (ctx && ctx->overheard) {
-		sb_addf(&sb, "%s mene l'enquete dans le batiment.\n",
-		        save->player_name ? save->player_name : "L'enqueteur");
-	} else {
-		sb_addf(&sb, "Tu es interroge par %s, qui mene l'enquete.\n",
-		        save->player_name ? save->player_name : "l'enqueteur");
-	}
-
-	/* Qui assiste a la scene : ce n'est pas un detail, on ne dit pas la meme
-	 * chose devant temoin que seul a seul. */
-	if (ctx && ctx->nb_present > 0) {
-		sb_add(&sb, "Sont aussi presents, et vous entendent : ");
-		for (int i = 0; i < ctx->nb_present; i++)
-			sb_addf(&sb, "%s%s", i ? ", " : "", ctx->present_names[i]);
-		sb_add(&sb, ".\n");
-	}
+	sb_addf(&sb, "%s mene l'enquete dans le batiment.\n",
+	        save->player_name ? save->player_name : "L'enqueteur");
+	/* Qui l'interroge, et devant qui, est ecrit plus bas avec le reste de la
+	 * scene : ces deux lignes changeaient a chaque fois que quelqu'un entrait
+	 * dans la piece, au beau milieu de la partie stable du prompt. Le fournisseur
+	 * ne peut mettre en cache qu'un prefixe : il ne restait plus que 11% de
+	 * commun d'un tour a l'autre, et tout le reste etait refacture. */
 	sb_add(&sb, "\n");
 
 	if (ch->personality)      add_list(&sb, "TON CARACTERE", ch->personality, ch->nb_personality);
@@ -157,7 +199,21 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 		            "reponds CLAIREMENT et tu donnes l'information, avec tes mots et ton "
 		            "caractere. Tu es un temoin, pas un adversaire. Ne repond pas par des "
 		            "generalites, ne renvoie pas indefiniment vers quelqu'un d'autre ou vers "
-		            "un document a consulter plus tard : ce que tu sais, tu le dis.\n\n");
+		            "un document a consulter plus tard : ce que tu sais, tu le dis.\n");
+
+		/* Contrepoids indispensable au paragraphe ci-dessus : sans lui, les
+		 * personnages deballaient tout ce qu'ils savaient a la premiere phrase,
+		 * heures et identifiants compris, et l'enquete se resolvait sans qu'on
+		 * ait rien demande. La regle est la pertinence, pas un quota : une
+		 * question qui touche trois elements en obtient trois. */
+		sb_add(&sb, "MAIS tu ne reponds QU'A CE QUI EST DEMANDE. Tu ne livres jamais de "
+		            "toi-meme un element que l'enqueteur n'a pas cherche : tu ne changes pas "
+		            "de sujet pour le placer, tu n'ajoutes pas de « et aussi... », tu ne fais "
+		            "l'inventaire de rien. S'il te parle d'autre chose, ou de rien, tu n'as "
+		            "aucune information a donner. Une heure, un chiffre, un identifiant, un "
+		            "nom de fichier ou un nom de personne ne sortent de ta bouche que si la "
+		            "question porte dessus. C'est a l'enqueteur de trouver quoi te demander : "
+		            "tu ne fais pas son travail a sa place.\n\n");
 	}
 
 	/* Secrets : ce qu'il cache, et ce qu'il a deja lache. */
@@ -191,15 +247,14 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 			const Clue *cl = &story->clues[i];
 			if (!cl->discoverable) continue;
 
-			bool holds = false, is_secret = false;
+			if (!character_holds_clue(ch, cl)) continue;
+
+			bool is_secret = false;
 			for (int k = 0; k < cl->nb_reveals; k++) {
-				for (int f = 0; f < ch->nb_known_facts; f++)
-					if (strcmp(ch->known_fact_ids[f], cl->reveals_fact_ids[k]) == 0) holds = true;
 				for (int s = 0; s < ch->nb_secrets; s++)
 					if (ch->secrets[s].fact_id &&
 					    strcmp(ch->secrets[s].fact_id, cl->reveals_fact_ids[k]) == 0) is_secret = true;
 			}
-			if (!holds) continue;
 
 			if (!any) {
 				sb_add(&sb, "CE QUE TU PEUX MONTRER A L'ENQUETEUR :\n");
@@ -210,6 +265,8 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 			        is_secret ? "  (cela t'accuse : tu ne le sors que contraint et force)" : "");
 		}
 		if (any) {
+			sb_add(&sb, "Tu ne les mentionnes jamais de toi-meme : c'est a l'enqueteur de "
+			            "penser a les demander. ");
 			sb_add(&sb, "Tu as reellement acces a ces elements, ici et maintenant. Si "
 			            "l'enqueteur te les demande, tu les SORS et tu dis ce qu'ils "
 			            "contiennent, dans la meme replique — sauf pour ceux qui "
@@ -221,7 +278,16 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 
 	if (ch->dialogue_tone && *ch->dialogue_tone)
 		sb_addf(&sb, "TON DE VOIX : %s\n", ch->dialogue_tone);
-	if (ch->speech_rules) add_list(&sb, "REGLES DE PAROLE", ch->speech_rules, ch->nb_speech_rules);
+	if (ch->speech_rules) {
+		add_list(&sb, "REGLES DE PAROLE", ch->speech_rules, ch->nb_speech_rules);
+		/* Ces regles disent COMMENT parler. Prises pour des ordres de tout dire
+		 * (« Donne les heures, noms de fichiers et traces avec precision »),
+		 * elles faisaient deballer horaires et identifiants a des personnages a
+		 * qui on n'avait rien demande. */
+		sb_add(&sb, "Ces regles decrivent ta facon de parler quand tu reponds : elles ne "
+		            "t'autorisent jamais a livrer de toi-meme une information qu'on ne t'a "
+		            "pas demandee.\n\n");
+	}
 
 	if (story->ai_global) add_list(&sb, "REGLES ABSOLUES", story->ai_global, story->nb_ai_global);
 
@@ -266,6 +332,34 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 		            "mentir pour proteger ton secret personnel.\n\n");
 	}
 
+	/* Premiere fois qu'il parle a l'enqueteur, ou reprise d'un echange deja
+	 * entame. Sans cette distinction, un personnage se presentait a chaque
+	 * replique, ou accueillait comme un habitue quelqu'un qu'il n'avait jamais
+	 * vu. Bascule une seule fois par partie : reste donc dans la partie stable,
+	 * ou il ne coute le prix plein qu'une fois. */
+	if (ctx && ctx->first_meeting) {
+		sb_add(&sb,
+			"PREMIER CONTACT : tu n'as encore jamais parle a cet enqueteur. Tu ne sais "
+			"de lui que ce que tu vois. Tu reagis comme on reagit a un inconnu qui vient "
+			"vous interroger — surprise, mefiance, politesse de facade, agacement, "
+			"empressement — selon TON CARACTERE.\n"
+			"Te presenter ou non est ton choix, et il decoule de ton caractere : "
+			"quelqu'un d'ouvert, de poli ou de cooperatif donne son nom des la premiere "
+			"phrase ; quelqu'un de ferme, de presse, de mefiant ou d'hostile repond sans "
+			"se nommer. Si tu ne te presentes pas, ne donne ton nom sous aucune forme "
+			"dans cette replique.\n\n");
+	} else {
+		sb_add(&sb,
+			"VOUS VOUS ETES DEJA PARLE : tu ne te presentes pas, tu ne redis pas bonjour "
+			"comme si vous vous rencontriez, tu ne reexpliques pas qui tu es. Tu reprends "
+			"la conversation la ou elle s'est arretee.\n\n");
+	}
+	if (ctx && !ctx->name_known_by_player) {
+		sb_add(&sb,
+			"L'enqueteur ne connait pas encore ton nom : ne fais pas comme s'il le "
+			"savait, et n'attends pas qu'il t'appelle par ton nom.\n\n");
+	}
+
 	/* ---- Partie volatile : evolue a chaque tour, donc placee en dernier ---- */
 
 	NpcState *ns = memory_get_npc(save, ch->id);
@@ -292,6 +386,21 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 	 * pas proposer d'aller dans une piece qui n'existe pas, ni sortir s'il n'a
 	 * pas le droit de changer de piece. */
 	sb_addf(&sb, "TU TE TROUVES DANS : %s.\n", (ctx && ctx->room_here) ? ctx->room_here : "?");
+
+	/* Deplacees ici depuis le CONTEXTE : meme information, mais dans la partie
+	 * volatile, la seule qui a le droit de changer d'un tour a l'autre. */
+	if (!ctx || !ctx->overheard) {
+		sb_addf(&sb, "C'est %s qui t'interroge, en personne, maintenant.\n",
+		        save->player_name ? save->player_name : "l'enqueteur");
+	}
+	/* Qui assiste a la scene : ce n'est pas un detail, on ne dit pas la meme
+	 * chose devant temoin que seul a seul. */
+	if (ctx && ctx->nb_present > 0) {
+		sb_add(&sb, "Sont aussi presents, et vous entendent : ");
+		for (int i = 0; i < ctx->nb_present; i++)
+			sb_addf(&sb, "%s%s", i ? ", " : "", ctx->present_names[i]);
+		sb_add(&sb, ".\n");
+	}
 
 	if (ctx && ctx->can_move) {
 		sb_add(&sb, "TES DEPLACEMENTS POSSIBLES (cle \"move\") :\n");
@@ -327,36 +436,17 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 		            "expliques que tu ne le peux pas ; ne promets jamais le contraire.\n\n");
 	}
 
-	/* Premiere fois qu'il parle a l'enqueteur, ou reprise d'un echange deja
-	 * entame. Sans cette distinction, un personnage se presentait a chaque
-	 * replique, ou accueillait comme un habitue quelqu'un qu'il n'avait jamais
-	 * vu. Bloc volatile : il change en cours de partie. */
-	if (ctx && ctx->first_meeting) {
-		sb_add(&sb,
-			"PREMIER CONTACT : tu n'as encore jamais parle a cet enqueteur. Tu ne sais "
-			"de lui que ce que tu vois. Tu reagis comme on reagit a un inconnu qui vient "
-			"vous interroger — surprise, mefiance, politesse de facade, agacement, "
-			"empressement — selon TON CARACTERE.\n"
-			"Te presenter ou non est ton choix, et il decoule de ton caractere : "
-			"quelqu'un d'ouvert, de poli ou de cooperatif donne son nom des la premiere "
-			"phrase ; quelqu'un de ferme, de presse, de mefiant ou d'hostile repond sans "
-			"se nommer. Si tu ne te presentes pas, ne donne ton nom sous aucune forme "
-			"dans cette replique.\n\n");
-	} else {
-		sb_add(&sb,
-			"VOUS VOUS ETES DEJA PARLE : tu ne te presentes pas, tu ne redis pas bonjour "
-			"comme si vous vous rencontriez, tu ne reexpliques pas qui tu es. Tu reprends "
-			"la conversation la ou elle s'est arretee.\n\n");
-	}
-	if (ctx && !ctx->name_known_by_player) {
-		sb_add(&sb,
-			"L'enqueteur ne connait pas encore ton nom : ne fais pas comme s'il le "
-			"savait, et n'attends pas qu'il t'appelle par ton nom.\n\n");
-	}
-
 	/* Intervention : personne ne lui a rien demande. C'est ce qui distingue
 	 * une reaction credible d'un personnage qui parlerait par obligation. */
-	if (ctx && ctx->overheard) {
+	if (ctx && ctx->overheard && ctx->came_to_speak) {
+		/* Il vient d'arriver expres : la consigne de silence ci-dessous ne
+		 * s'applique pas, elle le laisserait plante devant l'autre sans un mot.
+		 * Ce qu'il a a dire est decrit dans le message joint a ce prompt. */
+		sb_add(&sb,
+			"SITUATION : l'enqueteur ne s'adresse pas a toi. Tu viens, de ton propre chef, "
+			"parler a quelqu'un d'autre, devant lui. Tu dis ce que tu avais a dire, a cette "
+			"personne et non a l'enqueteur. Deux phrases au maximum.\n\n");
+	} else if (ctx && ctx->overheard) {
 		sb_addf(&sb,
 			"SITUATION : l'enqueteur ne s'adresse pas a toi. Tu assistes a son echange "
 			"avec %s, dans la meme piece. Tu n'interviens que si tu as une vraie raison : "
@@ -364,7 +454,15 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 			"ou te fait sortir de tes gonds.\n"
 			"Si tu n'as rien a dire, laisse \"line\" vide (\"\") : le silence est la reponse "
 			"la plus frequente. Ne repete pas ce qui vient d'etre dit, ne resume pas, "
-			"n'approuve pas poliment. Une phrase, deux au maximum.\n\n",
+			"n'approuve pas poliment. Une phrase, deux au maximum.\n"
+			/* C'etait la plus grosse fuite : un temoin qui n'avait rien a repondre
+			 * profitait de l'intervention pour livrer ce qu'il savait, et le joueur
+			 * recoltait des faits sans avoir pose une seule question. */
+			"Ton intervention n'apporte AUCUN element de l'enquete : tu reagis, tu "
+			"contredis, tu t'agaces, tu ironises, mais tu ne reveles rien de ce que tu "
+			"sais. Pas d'heure, pas de nom, pas de detail technique, aucune deduction "
+			"nouvelle : personne ne t'a rien demande. Si tu tiens a parler, on doit "
+			"t'interroger ensuite pour en savoir plus.\n\n",
 			ctx->overheard_speaker ? ctx->overheard_speaker : "quelqu'un");
 	}
 
@@ -383,13 +481,16 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 	StrBuf sb;
 	sb_init(&sb);
 
+	/* ---- Partie stable : identique pour tous les echanges de ce personnage ----
+	 *
+	 * L'echange a analyser vient EN DERNIER, alors qu'il etait en tete : il
+	 * change a chaque appel, donc il ne restait que 4% de prefixe commun d'une
+	 * analyse a l'autre et les 3 700 octets de listes et de consignes etaient
+	 * refactures chaque fois. Le modele lit exactement la meme chose. */
 	sb_addf(&sb,
 		"Tu analyses un echange d'interrogatoire pour un moteur de jeu. "
-		"Le personnage est %s (%s).\n\n"
-		"ENQUETEUR : %s\n"
-		"%s : %s\n\n",
-		ch->name, ch->role ? ch->role : "", player_message ? player_message : "",
-		ch->name, npc_reply ? npc_reply : "");
+		"Le personnage est %s (%s).\n\n",
+		ch->name, ch->role ? ch->role : "");
 
 	/* Le modele ne peut choisir que parmi les faits que ce personnage connait :
 	 * il ne peut donc pas faire "apprendre" au joueur un fait hors-champ. */
@@ -414,15 +515,26 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 	 * ouvre des journaux ou montre un enregistrement ne produisait rien : le
 	 * joueur voyait la scene mais n'obtenait aucune information, et les faits
 	 * que ces pieces revelent restaient hors d'atteinte pour toute la partie. */
+	/* Uniquement les pieces que CE personnage peut sortir, comme dans le prompt
+	 * de dialogue : lui presenter tout le catalogue de l'enquete l'invitait a
+	 * attribuer a l'un ce qu'un autre detient, et coutait le catalogue entier a
+	 * chaque analyse. */
 	if (story->nb_clues > 0) {
-		sb_add(&sb, "Pieces a conviction de l'enquete (identifiants autorises) :\n");
+		bool any = false;
 		for (int i = 0; i < story->nb_clues; i++) {
-			if (!story->clues[i].discoverable) continue;
-			sb_addf(&sb, "- %s : %s (%s)\n", story->clues[i].id,
-			        story->clues[i].name,
-			        story->clues[i].description ? story->clues[i].description : "");
+			const Clue *cl = &story->clues[i];
+			if (!cl->discoverable) continue;
+			if (!character_holds_clue(ch, cl)) continue;
+
+			if (!any) {
+				sb_add(&sb, "Pieces a conviction que ce personnage peut sortir "
+				            "(identifiants autorises) :\n");
+				any = true;
+			}
+			sb_addf(&sb, "- %s : %s (%s)\n", cl->id, cl->name,
+			        cl->description ? cl->description : "");
 		}
-		sb_add(&sb, "\n");
+		if (any) sb_add(&sb, "\n");
 	}
 
 	sb_addf(&sb,
@@ -438,7 +550,11 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 		"\"produced_clue_id\": null}\n\n"
 		"Regles : n'invente aucun identifiant, n'utilise que ceux listes ci-dessus. "
 		"player_learned_fact_ids ne contient que les faits que le personnage vient "
-		"reellement de reveler a l'enqueteur dans cet echange. "
+		"reellement de reveler a l'enqueteur dans cet echange : il faut qu'il les ait "
+		"ENONCES, assez clairement pour que l'enqueteur puisse s'en servir. Une allusion, "
+		"un sous-entendu, une plaisanterie sur le sujet ou le simple fait d'en parler ne "
+		"comptent pas, et un fait dont il n'a rien dit ne compte jamais, meme si la "
+		"question le concernait. "
 		"revealed_secret_id n'est renseigne que si le personnage vient d'avouer ce secret. "
 		"produced_clue_id est renseigne quand le personnage vient de MONTRER ou de SORTIR "
 		"cette piece a conviction a l'enqueteur (il ouvre les journaux, affiche le fichier, "
@@ -446,8 +562,23 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 		"plus tard ne compte pas ; en revanche, s'il dit l'avoir fait ou decrit ce qu'elle "
 		"contient, elle compte. "
 		"Les variations de relation restent entre -10 et 10. "
-		"Ne cree un souvenir que si importance >= %d.",
+		"Ne cree un souvenir que si importance >= %d.\n\n",
 		story->memory.minimum_importance_to_store);
+
+	/* ---- Partie volatile : l'echange a analyser, donc en dernier ----
+	 *
+	 * Note : le prompt de DIALOGUE fait l'inverse, il garde ses consignes de
+	 * format en toute fin. La difference est assumee et tient aux consequences
+	 * d'un format rate : une replique mal formee se voit a l'ecran et coute le
+	 * tour au joueur, alors qu'une analyse mal formee est simplement ignoree par
+	 * analysis_parse et retentee a l'echange suivant. Ici on prend donc le cache
+	 * (98% de prefixe commun au lieu de ~55%), la-bas on prend la fiabilite. */
+	sb_addf(&sb,
+		"ECHANGE A ANALYSER :\n"
+		"ENQUETEUR : %s\n"
+		"%s : %s\n",
+		player_message ? player_message : "",
+		ch->name, npc_reply ? npc_reply : "");
 
 	return sb_take(&sb);
 }
@@ -625,7 +756,13 @@ char *prompt_build_solution(const Story *story, const char *culprit_id) {
 		"}\n\n"
 		"Contraintes : n'invente aucun fait qui contredirait la liste, n'invente aucun "
 		"personnage, n'utilise que les identifiants de faits fournis. La resolution doit "
-		"etre deductible a partir des faits et des indices.");
+		"etre deductible a partir des faits et des indices.\n"
+		/* Le moteur ecarte de lui-meme les faits que seul le coupable connait
+		 * (voir generate_solution), mais autant que le modele n'en propose pas :
+		 * un fait ecarte est un element a charge de moins pour l'enqueteur. */
+		"Pour incriminating_fact_ids, choisis en priorite des faits qu'un AUTRE personnage "
+		"connait ou qu'une piece a conviction etablit : l'enqueteur doit pouvoir les obtenir "
+		"sans passer par le coupable, qui n'avoue justement qu'une fois confronte a eux.");
 
 	return sb_take(&sb);
 }
@@ -659,6 +796,160 @@ void solution_free(SolutionResult *s) {
 	free(s->culprit_brief);
 	for (int i = 0; i < s->nb_facts; i++) free(s->fact_ids[i]);
 	memset(s, 0, sizeof(*s));
+}
+
+/* ------------------------------------------------------------------ */
+/* Combler les trous de solubilite                                     */
+/* ------------------------------------------------------------------ */
+
+char *prompt_build_clue_fill(const Story *story, const char *culprit_id,
+                             const char **missing, int nb_missing) {
+	if (!story || !culprit_id || nb_missing <= 0) return NULL;
+
+	const StoryCharacter *cul = story_character(story, culprit_id);
+	if (!cul) return NULL;
+
+	StrBuf sb;
+	sb_init(&sb);
+
+	sb_addf(&sb,
+		"Tu completes le dossier d'une enquete policiere pour un moteur de jeu, dans "
+		"l'univers suivant.\n\n"
+		"AFFAIRE : %s\n", story->title ? story->title : "");
+	if (story->location) sb_addf(&sb, "Lieu : %s", story->location);
+	if (story->year) sb_addf(&sb, " (%d)", story->year);
+	sb_add(&sb, "\n");
+	if (story->premise) sb_addf(&sb, "%s\n", story->premise);
+	sb_add(&sb, "\n");
+
+	sb_addf(&sb,
+		"PROBLEME A RESOUDRE : le coupable de cette partie est %s. Les faits ci-dessous "
+		"l'accusent, mais AUCUNE autre personne que lui ne peut les rapporter, et il "
+		"n'avoue que confronte a des preuves. L'enquete est donc actuellement impossible "
+		"a resoudre.\n\n"
+		"IL FAUT DONC, pour chaque fait listé, une piece a conviction materielle (des "
+		"journaux, un mail, un rapport, un enregistrement, une trace, un objet) que "
+		"l'enqueteur puisse obtenir SANS passer par %s, et une personne credible qui la "
+		"detient.\n\n",
+		cul->name, cul->name);
+
+	sb_add(&sb, "FAITS A COUVRIR (un par piece, reprends l'identifiant tel quel) :\n");
+	for (int i = 0; i < nb_missing; i++) {
+		const Fact *f = story_fact(story, missing[i]);
+		sb_addf(&sb, "- %s : %s\n", missing[i], f && f->text ? f->text : "");
+	}
+	sb_add(&sb, "\n");
+
+	/* Les detenteurs possibles, calcules par le moteur : places sur la carte, et
+	 * jamais le coupable. Le modele choisit dans cette liste, il ne l'invente
+	 * pas. */
+	sb_add(&sb, "DETENTEURS POSSIBLES (choisis dans cette liste, et dans elle seule) :\n");
+	for (int i = 0; i < story->nb_characters; i++) {
+		const StoryCharacter *c = &story->characters[i];
+		if (!c->placed) continue;
+		if (c->id && strcmp(c->id, culprit_id) == 0) continue;
+		sb_addf(&sb, "- %s : %s", c->id, c->name);
+		if (c->role) sb_addf(&sb, ", %s", c->role);
+		sb_add(&sb, "\n");
+	}
+	sb_add(&sb, "\n");
+
+	/* Ce qui existe deja, pour ne pas ecrire deux fois la meme piece. */
+	if (story->nb_clues > 0) {
+		sb_add(&sb, "PIECES QUI EXISTENT DEJA (n'en refais pas une equivalente) :\n");
+		for (int i = 0; i < story->nb_clues; i++)
+			sb_addf(&sb, "- %s : %s\n", story->clues[i].name,
+			        story->clues[i].description ? story->clues[i].description : "");
+		sb_add(&sb, "\n");
+	}
+
+	sb_add(&sb,
+		"Reponds UNIQUEMENT avec un objet JSON brut, sans markdown ni texte autour :\n"
+		"{\n"
+		"  \"clues\": [\n"
+		"    { \"fact_id\": \"l'identifiant du fait couvert, copie tel quel\",\n"
+		"      \"id\": \"identifiant court en minuscules, sans espace ni accent\",\n"
+		"      \"name\": \"nom court, tel qu'il s'affichera au joueur\",\n"
+		"      \"description\": \"une phrase : ce que la piece montre concretement\",\n"
+		"      \"holder_id\": \"l'identifiant d'un detenteur de la liste ci-dessus\" }\n"
+		"  ]\n"
+		"}\n\n"
+		"Contraintes : une entree par fait a couvrir, pas plus. N'invente aucun fait, "
+		"aucun personnage, aucun identifiant de fait : recopie ceux fournis. holder_id "
+		"doit venir de la liste des detenteurs possibles. La piece doit exister "
+		"materiellement dans ce decor et a cette epoque, et sa description doit rester "
+		"compatible avec le fait qu'elle etablit — le joueur la lira comme une preuve.\n"
+		"Ecris dans le ton de l'affaire, en francais.");
+
+	return sb_take(&sb);
+}
+
+bool clue_fill_parse(const char *json_text, const Story *story, const char *culprit_id,
+                     const char **missing, int nb_missing, ClueFillResult *out) {
+	memset(out, 0, sizeof(*out));
+	if (!json_text || !story) return false;
+
+	const char *brace = strchr(json_text, '{');
+	JsonValue *root = json_parse(brace ? brace : json_text);
+	if (!root) return false;
+
+	JsonValue *arr = json_object_get(root, "clues");
+	int nb = json_array_count(arr);
+
+	for (int i = 0; i < nb && out->nb_items < CLUE_FILL_MAX; i++) {
+		JsonValue *c = json_array_get(arr, i);
+		const char *fid    = json_string(json_object_get(c, "fact_id"));
+		const char *cid    = json_string(json_object_get(c, "id"));
+		const char *name   = json_string(json_object_get(c, "name"));
+		const char *desc   = json_string(json_object_get(c, "description"));
+		const char *holder = json_string(json_object_get(c, "holder_id"));
+		if (!fid || !cid || !holder) continue;
+
+		/* Le fait doit exister ET faire partie des trous demandes : sinon le
+		 * modele s'offrirait le droit d'ajouter des preuves ailleurs. */
+		if (!story_fact(story, fid)) continue;
+		bool asked = false;
+		for (int k = 0; k < nb_missing; k++)
+			if (strcmp(missing[k], fid) == 0) asked = true;
+		if (!asked) continue;
+
+		/* Le detenteur doit exister, etre sur la carte, et ne pas etre le
+		 * coupable : sinon on n'a rien resolu. */
+		const StoryCharacter *h = story_character(story, holder);
+		if (!h || !h->placed) continue;
+		if (culprit_id && h->id && strcmp(h->id, culprit_id) == 0) continue;
+
+		/* Un identifiant qui existe deja serait fusionne avec un indice d'auteur
+		 * et changerait ce que l'auteur a ecrit. */
+		bool clash = false;
+		for (int k = 0; k < story->nb_clues; k++)
+			if (story->clues[k].id && strcmp(story->clues[k].id, cid) == 0) clash = true;
+		for (int k = 0; k < out->nb_items; k++)
+			if (strcmp(out->items[k].clue_id, cid) == 0) clash = true;
+		if (clash) continue;
+
+		ClueFill *it = &out->items[out->nb_items++];
+		it->clue_id     = strdup(cid);
+		it->name        = strdup(name && *name ? name : cid);
+		it->description = strdup(desc ? desc : "");
+		it->fact_id     = strdup(fid);
+		it->holder_id   = strdup(h->id);
+	}
+
+	json_free(root);
+	return out->nb_items > 0;
+}
+
+void clue_fill_free(ClueFillResult *r) {
+	if (!r) return;
+	for (int i = 0; i < r->nb_items; i++) {
+		free(r->items[i].clue_id);
+		free(r->items[i].name);
+		free(r->items[i].description);
+		free(r->items[i].fact_id);
+		free(r->items[i].holder_id);
+	}
+	memset(r, 0, sizeof(*r));
 }
 
 void analysis_free(AnalysisResult *a) {

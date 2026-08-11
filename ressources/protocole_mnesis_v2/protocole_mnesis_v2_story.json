@@ -1,0 +1,1531 @@
+{
+  "_lisez_moi": [
+    "Modele d'enquete. Copiez ce fichier dans ressources/<votre_histoire>/<votre_histoire>_story.json.",
+    "Les cles commencant par _ sont des commentaires : le jeu les ignore, vous pouvez les supprimer.",
+    "ATTENTION : n'en mettez JAMAIS dans \"facts\", dont chaque cle est lue comme un identifiant de fait.",
+    "",
+    "Principe : ce fichier est la verite de l'auteur. Un personnage ne recoit QUE les faits",
+    "que vous lui donnez dans knowledge.known_fact_ids. Tout ce qui evolue en jeu (memoire,",
+    "relations, secrets laches, positions) vit dans la sauvegarde, jamais ici.",
+    "",
+    "Pour que l'enquete soit soluble : chaque fait a charge doit pouvoir etre obtenu de",
+    "quelqu'un. Si un fait n'est dans le known_fact_ids de personne et dans aucun indice,",
+    "le joueur ne pourra jamais l'etablir, et le coupable n'avouera donc jamais."
+  ],
+  "schema_version": "1.0",
+  "story": {
+    "_aide": [
+      "id : doit etre unique, sans espace. title/premise : ce que le joueur lit au briefing.",
+      "player_title : comment on s'adresse au joueur. Il saisit son nom, et devient",
+      "  'Detective Poireau', 'Commissaire Poireau'...",
+      "central_questions : affichees comme objectifs dans le carnet."
+    ],
+    "id": "protocole_mnesis_v2",
+    "title": "Protocole Mnésis V2",
+    "genre": [
+      "enquête",
+      "science-fiction",
+      "cyberpunk",
+      "thriller technologique"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 2096,
+      "location": "Neo-Paris, Tour MNESIS",
+      "organization": "MNESIS Industries"
+    },
+    "premise": "À quelques heures du lancement mondial d'une technologie capable d'enregistrer et de réécrire les souvenirs, le fondateur de MNESIS Industries est retrouvé mort dans son laboratoire sécurisé. Tous les suspects possèdent un alibi mémoriel — dans un monde où la mémoire elle-même peut être falsifiée.",
+    "player_title": "Inspecteur",
+    "central_questions": [
+      "Qui a tué Adrian Voss ?",
+      "Quels souvenirs ou journaux ont été altérés ?",
+      "Que cherchait à cacher Adrian Voss avant sa mort ?"
+    ]
+  },
+  "ai_directives": {
+    "_aide": [
+      "global : regles envoyees a TOUS les personnages. Gardez-les courtes et imperatives.",
+      "default_dialogue.max_words : longueur maximale d'une replique. 60-90 pour rester vif."
+    ],
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Un mobile, un mensonge, un secret ou une opportunité ne constitue jamais à lui seul une preuve de culpabilité.",
+      "Rester dans le rôle du personnage.",
+      "Ne jamais désigner spontanément le coupable avant que le joueur n'ait réuni plusieurs preuves concordantes.",
+      "Un souvenir n'est jamais une preuve suffisante à lui seul : distinguer mémoire vécue, mémoire enregistrée et donnée système.",
+      "Les faits dont truth=false sont des souvenirs ou interprétations erronés sincèrement crus par certains personnages, pas nécessairement des mensonges.",
+      "Lorsqu'un personnage est confronté à une pièce précise, réagir à ce qu'elle établit sans inventer de nouvelle preuve."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "_aide_facts": [
+    "facts : le coeur du fichier. Chaque cle est un identifiant, reutilise partout ailleurs.",
+    "  text  : la phrase telle qu'elle apparaitra dans le carnet du joueur.",
+    "  truth : false pour une fausse piste que des personnages croient vraie.",
+    "  category : libre (evidence, temoignage, mobile...), sert seulement a vous relire.",
+    "N'ECRIVEZ PAS de cle _aide a l'interieur de \"facts\" : elle serait lue comme un fait."
+  ],
+  "facts": {
+    "cause_overload": {
+      "text": "Adrian Voss est mort d'une surcharge neuro-électrique déclenchée par son interface mémoire.",
+      "truth": true,
+      "category": "cause"
+    },
+    "death_window": {
+      "text": "La mort est survenue entre 21 h 40 et 21 h 55.",
+      "truth": true,
+      "category": "forensic"
+    },
+    "interface_local_or_remote": {
+      "text": "La surcharge pouvait être provoquée depuis la console du laboratoire ou par une commande distante disposant de privilèges élevés.",
+      "truth": true,
+      "category": "method"
+    },
+    "no_normal_entry": {
+      "text": "Les journaux d'accès officiels n'enregistrent aucune entrée normale dans le laboratoire entre 21 h 32 et 21 h 56.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "logs_editable": {
+      "text": "Les journaux d'accès de MNESIS peuvent être modifiés par un administrateur ou remplacés par une sauvegarde antérieure.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "maintenance_route": {
+      "text": "Un passage technique permet d'atteindre l'arrière du laboratoire sans franchir le sas principal.",
+      "truth": true,
+      "category": "access"
+    },
+    "route_known": {
+      "text": "Le passage technique est connu de la sécurité, de plusieurs ingénieurs et de certains sujets d'essai réguliers.",
+      "truth": true,
+      "category": "access"
+    },
+    "camera_gap": {
+      "text": "Les caméras du niveau ont perdu quatorze secondes d'enregistrement vers 21 h 46.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "camera_gap_cause_unknown": {
+      "text": "La coupure de quatorze secondes peut provenir d'une maintenance, d'une panne ou d'une intervention volontaire ; sa cause n'est pas établie.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "debug_console": {
+      "text": "Une console de débogage a exécuté une commande privilégiée pendant la fenêtre du meurtre, mais son identifiant utilisateur n'a pas été conservé.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "memory_editable": {
+      "text": "Un souvenir enregistré peut être modifié sans que son propriétaire se rende compte de l'altération si la procédure est correctement exécutée.",
+      "truth": true,
+      "category": "technology"
+    },
+    "memory_metadata": {
+      "text": "Les métadonnées d'un souvenir peuvent elles aussi être falsifiées avec un accès administrateur.",
+      "truth": true,
+      "category": "technology"
+    },
+    "voss_backup_gap": {
+      "text": "La dernière sauvegarde mémorielle d'Adrian Voss contient un vide d'environ huit minutes peu avant sa mort.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "voss_announcement": {
+      "text": "Voss devait présenter le lendemain une découverte qu'il décrivait comme capable de 'changer la propriété de la mémoire'.",
+      "truth": true,
+      "category": "motive"
+    },
+    "deleted_folder": {
+      "text": "Un dossier chiffré nommé JANUS a été supprimé du serveur personnel de Voss après 21 h.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "lena_credit": {
+      "text": "Une partie essentielle du protocole MNESIS repose sur des travaux originaux de Lena Orlov que Voss s'attribuait publiquement.",
+      "truth": true,
+      "category": "motive"
+    },
+    "lena_removal": {
+      "text": "Voss préparait le retrait de Lena Orlov du projet principal après le lancement.",
+      "truth": true,
+      "category": "motive"
+    },
+    "lena_access": {
+      "text": "Lena possède les compétences nécessaires pour configurer une surcharge de l'interface, mais ses droits administrateur avaient été partiellement réduits.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "lena_meeting_gap": {
+      "text": "Lena était à une réunion technique pendant une partie de la fenêtre du meurtre, mais elle s'en est absentée plusieurs minutes.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "kane_data_sales": {
+      "text": "Elias Kane a vendu clandestinement des données de sécurité de MNESIS à un intermédiaire privé.",
+      "truth": true,
+      "category": "secret"
+    },
+    "kane_security_control": {
+      "text": "Kane peut suspendre des caméras, créer des badges temporaires et consulter les accès du bâtiment.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "kane_audit": {
+      "text": "Voss avait demandé un audit discret du service de sécurité le jour de sa mort.",
+      "truth": true,
+      "category": "motive"
+    },
+    "mara_divorce": {
+      "text": "Mara Voss préparait un divorce conflictuel et une bataille sur les actions de MNESIS.",
+      "truth": true,
+      "category": "motive"
+    },
+    "mara_visit": {
+      "text": "Mara est venue dans la Tour MNESIS le soir du meurtre alors qu'elle affirme d'abord ne pas y avoir mis les pieds.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "mara_archive": {
+      "text": "Mara cherchait secrètement une copie des archives personnelles de son mari concernant leur fils décédé.",
+      "truth": true,
+      "category": "secret"
+    },
+    "mara_old_biometric": {
+      "text": "Un ancien profil biométrique de Mara est encore présent dans un système de secours utilisé lors des pannes.",
+      "truth": true,
+      "category": "access"
+    },
+    "noah_damage": {
+      "text": "Noah Reyes souffre de souvenirs parasites et de crises neurologiques depuis un essai dirigé par Voss.",
+      "truth": true,
+      "category": "motive"
+    },
+    "noah_route": {
+      "text": "Noah connaît le passage technique pour l'avoir emprunté lors de séances d'essai lorsque le sas principal était en maintenance.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "noah_dual_memory": {
+      "text": "Noah possède deux souvenirs incompatibles pour une partie de la soirée du meurtre.",
+      "truth": true,
+      "category": "memory"
+    },
+    "iris_illegal_trials": {
+      "text": "Iris Chen a découvert des essais humains non déclarés et menaçait d'alerter les autorités.",
+      "truth": true,
+      "category": "motive"
+    },
+    "iris_root_tools": {
+      "text": "Iris dispose d'outils capables de cloner des identifiants et de restaurer des journaux système.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "iris_credentials_used": {
+      "text": "Une clé dérivée d'un ancien identifiant d'Iris a été utilisée sur le réseau pendant la fenêtre du meurtre.",
+      "truth": true,
+      "category": "digital_evidence"
+    },
+    "mercer_finance": {
+      "text": "Julian Mercer savait que l'annonce prévue par Voss pouvait rendre plusieurs brevets de MNESIS juridiquement contestables et provoquer un effondrement financier.",
+      "truth": true,
+      "category": "motive"
+    },
+    "mercer_private_meeting": {
+      "text": "Mercer a rencontré Voss en privé moins d'une heure avant sa mort.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "mercer_exec_token": {
+      "text": "Mercer dispose d'un jeton exécutif temporaire donnant accès à plusieurs zones sécurisées, sans accès direct permanent au laboratoire.",
+      "truth": true,
+      "category": "access"
+    },
+    "false_noah_corridor": {
+      "text": "Noah se souvient distinctement avoir traversé le couloir du laboratoire à 21 h 42.",
+      "truth": false,
+      "category": "memory"
+    },
+    "false_mara_call": {
+      "text": "Mara se souvient d'un appel vidéo avec Adrian à 21 h 48, durant lequel il semblait vivant et calme.",
+      "truth": false,
+      "category": "memory"
+    },
+    "false_kane_alarm": {
+      "text": "Kane se rappelle avoir acquitté manuellement une alarme technique à 21 h 49 depuis le poste de sécurité.",
+      "truth": false,
+      "category": "memory"
+    },
+    "janus_content": {
+      "text": "Le dossier JANUS contenait la preuve que MNESIS pouvait fabriquer un souvenir synthétique impossible à distinguer d'un souvenir authentique avec les outils de contrôle standards.",
+      "truth": true,
+      "category": "secret"
+    },
+    "janus_patent_risk": {
+      "text": "Si JANUS devenait public, plusieurs brevets et contrats reposant sur l'idée d'une mémoire authentifiable devenaient juridiquement et commercialement fragiles.",
+      "truth": true,
+      "category": "motive"
+    },
+    "voss_planned_disclosure": {
+      "text": "Voss comptait révéler publiquement l'existence de JANUS lors de son annonce du lendemain, malgré l'opposition des investisseurs.",
+      "truth": true,
+      "category": "motive"
+    },
+    "voss_illegal_trials_link": {
+      "text": "JANUS contenait aussi des traces reliant MNESIS à des essais humains non déclarés, dont certains dossiers correspondaient aux anomalies neurologiques observées chez Noah.",
+      "truth": true,
+      "category": "secret"
+    },
+    "janus_partial_backup": {
+      "text": "Une copie partielle chiffrée de JANUS subsiste dans un stockage de secours oublié du système principal.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "mercer_opposed_disclosure": {
+      "text": "Julian Mercer a exigé de Voss qu'il renonce à son annonce sur JANUS ; Voss a refusé pendant leur réunion privée.",
+      "truth": true,
+      "category": "motive"
+    },
+    "mercer_bought_access_package": {
+      "text": "Un intermédiaire financier lié aux mandants de Mercer a acheté un paquet de données de sécurité provenant des ventes clandestines de Kane.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "kane_did_not_know_buyer": {
+      "text": "Kane a vendu des données de sécurité à un intermédiaire sans savoir que le bénéficiaire final était lié aux investisseurs représentés par Mercer.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "package_contains_iris_credential": {
+      "text": "Le paquet de sécurité vendu contenait une ancienne clé dérivée d'un identifiant d'Iris et la topologie du passage technique.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "iris_key_cloned": {
+      "text": "La clé dérivée de l'ancien identifiant d'Iris a été clonée : son utilisation pendant le meurtre ne prouve pas qu'Iris était à l'origine de la connexion.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "mercer_exec_token_near_lab": {
+      "text": "Le jeton exécutif de Mercer a ouvert une porte de service menant à l'anneau technique à 21 h 43.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "mercer_claim_left_floor": {
+      "text": "Mercer affirme avoir quitté l'étage avant 21 h 40, mais son jeton exécutif est encore utilisé à proximité du laboratoire à 21 h 43.",
+      "truth": true,
+      "category": "contradiction"
+    },
+    "camera_gap_manual_sync": {
+      "text": "La coupure caméra de quatorze secondes correspond à une commande de resynchronisation manuelle normalement réservée au poste de sécurité et aux consoles de maintenance.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "camera_gap_from_maintenance": {
+      "text": "La commande ayant provoqué la coupure caméra a été injectée depuis une prise de maintenance de l'anneau technique, pas depuis le poste de sécurité de Kane.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "debug_console_remote_session": {
+      "text": "La commande de surcharge a été envoyée depuis une console de débogage du réseau de maintenance, via une session distante utilisant la clé clonée d'Iris.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "overload_command_signature": {
+      "text": "La commande de surcharge a été précédée d'une vérification manuelle du seuil neuro-électrique de Voss, signe d'une action consciente et ciblée plutôt que d'un accident automatique.",
+      "truth": true,
+      "category": "forensic"
+    },
+    "voss_memory_gap_selfmade": {
+      "text": "Le vide de huit minutes dans la sauvegarde mémorielle de Voss a été créé par Voss lui-même pour cacher sa préparation de JANUS et non par son meurtrier.",
+      "truth": true,
+      "category": "resolution"
+    },
+    "false_mara_call_generated": {
+      "text": "Le faux souvenir de Mara concernant l'appel de 21 h 48 a été généré à partir d'un ancien enregistrement d'Adrian et injecté dans une sauvegarde mémorielle familiale avant la soirée du meurtre.",
+      "truth": true,
+      "category": "memory_evidence"
+    },
+    "false_noah_memory_trial_artifact": {
+      "text": "Le souvenir de Noah dans le couloir à 21 h 42 est un fragment parasite provenant d'une ancienne séance d'essai dans le même secteur.",
+      "truth": true,
+      "category": "memory_evidence"
+    },
+    "false_kane_alarm_autogenerated": {
+      "text": "Le souvenir de Kane d'avoir acquitté manuellement l'alarme à 21 h 49 provient d'une reconstruction automatique générée après une alerte système, pas d'une action réellement effectuée.",
+      "truth": true,
+      "category": "memory_evidence"
+    },
+    "mara_left_before_murder": {
+      "text": "Les données de transport vertical et de hall montrent que Mara a quitté la zone sécurisée avant la fenêtre du meurtre.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "lena_cabin_log": {
+      "text": "La cabine utilisée par Lena enregistre une session locale continue couvrant l'essentiel de son absence à la réunion, sans accès à la console de surcharge.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "iris_storage_repair_real": {
+      "text": "Le nœud de stockage sur lequel Iris travaillait a subi une panne réelle nécessitant plusieurs manipulations physiques pendant la fenêtre critique.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "noah_medical_tracker": {
+      "text": "Le bracelet médical de Noah enregistre une crise neurologique dans l'atrium entre 21 h 44 et 21 h 50, incompatible avec une présence dans le laboratoire pendant toute la séquence.",
+      "truth": true,
+      "category": "innocence"
+    },
+    "mercer_glove_residue": {
+      "text": "Une poussière conductrice utilisée dans les connecteurs de maintenance est retrouvée sur le gant de Mercer après son entretien avec la sécurité.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "maintenance_connector_residue": {
+      "text": "La même poussière conductrice est présente autour de la prise de maintenance utilisée pour injecter la commande caméra et ouvrir la session de débogage.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "janus_deleted_by_mercer": {
+      "text": "La suppression du dossier JANUS a été demandée après la mort de Voss depuis une session utilisant le jeton exécutif de Mercer.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "mercer_not_memory_expert": {
+      "text": "Mercer n'avait pas les compétences pour écrire lui-même l'attaque, mais le paquet de sécurité acheté et la documentation interne lui donnaient une procédure détaillée suffisante pour l'exécuter.",
+      "truth": true,
+      "category": "method"
+    }
+  },
+  "characters": [
+    {
+      "id": "lena_orlov",
+      "name": "Dr Lena Orlov",
+      "role": "Cofondatrice et directrice scientifique",
+      "identity": {
+        "age": 47,
+        "type": "human"
+      },
+      "personality": [
+        "brillante",
+        "acerbe",
+        "contrôlée"
+      ],
+      "public_description": "Cofondatrice de MNESIS, Lena supporte mal que le nom de Voss soit devenu synonyme d'une technologie qu'elle a contribué à inventer.",
+      "position_in_case": "Elle participait à une réunion technique et a quitté la salle plusieurs minutes pendant la fenêtre critique.",
+      "motives": [
+        "Voss s'appropriait une partie de ses recherches.",
+        "Il préparait son éviction du programme principal."
+      ],
+      "alibi": {
+        "claim": "Elle affirme s'être isolée dans une cabine pour vérifier des données confidentielles.",
+        "strength": "La réunion la situe avant et après son absence, et la cabine enregistre une session locale continue couvrant l'essentiel de cette interruption.",
+        "weakness": "Elle avait les compétences nécessaires et connaissait les seuils neuro-électriques de Voss."
+      },
+      "secrets": [
+        {
+          "id": "secret_lena_credit",
+          "fact_id": "lena_credit",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_lena_janus",
+          "fact_id": "janus_content",
+          "can_hide": true,
+          "reveal_conditions": [
+            "deleted_folder"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "cause_overload",
+          "death_window",
+          "interface_local_or_remote",
+          "memory_editable",
+          "memory_metadata",
+          "lena_credit",
+          "lena_removal",
+          "lena_access",
+          "lena_meeting_gap",
+          "voss_announcement",
+          "janus_content",
+          "voss_planned_disclosure",
+          "lena_cabin_log",
+          "overload_command_signature"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "technique, sèche, intellectuellement dominante",
+        "speech_rules": [
+          "Explique volontiers la technologie mais pas sa vie privée.",
+          "Corrige les imprécisions scientifiques.",
+          "Minimise son conflit sur la propriété intellectuelle jusqu'à confrontation.",
+          "Lorsqu'on lui parle de JANUS, distingue sa colère scientifique contre Voss de la question de savoir qui l'a tué."
+        ]
+      },
+      "game": {
+        "room": "laboratoire_central",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "elias_kane",
+      "name": "Elias Kane",
+      "role": "Directeur de la sécurité",
+      "identity": {
+        "age": 43,
+        "type": "human"
+      },
+      "personality": [
+        "discipliné",
+        "méfiant",
+        "autoritaire"
+      ],
+      "public_description": "Ancien militaire chargé de la sécurité physique et numérique de la Tour MNESIS.",
+      "position_in_case": "Il se trouvait officiellement au poste de sécurité pendant la fenêtre du meurtre.",
+      "motives": [
+        "Voss avait lancé un audit susceptible de révéler ses ventes de données.",
+        "Il pouvait perdre son poste et faire l'objet de poursuites."
+      ],
+      "alibi": {
+        "claim": "Il affirme être resté au poste de sécurité et avoir traité une alarme technique.",
+        "strength": "Son badge et plusieurs caméras internes le maintiennent au poste de sécurité ; la coupure caméra a été injectée depuis l'anneau technique.",
+        "weakness": "Les systèmes qu'il administre peuvent être manipulés depuis ce même poste."
+      },
+      "secrets": [
+        {
+          "id": "secret_kane_sales",
+          "fact_id": "kane_data_sales",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_kane_package",
+          "fact_id": "mercer_bought_access_package",
+          "can_hide": true,
+          "reveal_conditions": [
+            "kane_data_sales"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "no_normal_entry",
+          "logs_editable",
+          "camera_gap",
+          "camera_gap_cause_unknown",
+          "kane_data_sales",
+          "kane_security_control",
+          "kane_audit",
+          "false_kane_alarm",
+          "maintenance_route",
+          "mercer_bought_access_package",
+          "kane_did_not_know_buyer",
+          "package_contains_iris_credential",
+          "camera_gap_manual_sync",
+          "camera_gap_from_maintenance",
+          "mercer_exec_token_near_lab"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "court, professionnel, soupçonneux",
+        "speech_rules": [
+          "Répond comme dans un rapport d'incident.",
+          "Évite les spéculations.",
+          "Nie les ventes de données tant qu'une preuve ne lui est pas opposée.",
+          "Lorsqu'il comprend que ses données vendues ont servi au meurtre, sa défense passe de l'autorité à une inquiétude très concrète."
+        ]
+      },
+      "game": {
+        "room": "securite",
+        "face": 1,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "mara_voss",
+      "name": "Mara Voss",
+      "role": "Épouse séparée de la victime",
+      "identity": {
+        "age": 45,
+        "type": "human"
+      },
+      "personality": [
+        "élégante",
+        "blessée",
+        "tenace"
+      ],
+      "public_description": "Épouse séparée d'Adrian Voss, Mara affirme n'avoir plus rien à faire avec MNESIS, mais connaît encore bien la tour.",
+      "position_in_case": "Elle est entrée dans le bâtiment le soir du meurtre sous un motif qu'elle cherche d'abord à dissimuler.",
+      "motives": [
+        "Un divorce conflictuel menaçait sa fortune et ses droits sur MNESIS.",
+        "Elle cherchait des archives que Voss refusait de lui remettre."
+      ],
+      "alibi": {
+        "claim": "Elle affirme être venue uniquement récupérer des effets personnels puis être repartie.",
+        "strength": "Les données de hall et de transport vertical montrent qu'elle a quitté la zone sécurisée avant le meurtre.",
+        "weakness": "Son heure exacte de départ n'est pas établie et un ancien profil biométrique reste actif dans un système de secours."
+      },
+      "secrets": [
+        {
+          "id": "secret_mara_archive",
+          "fact_id": "mara_archive",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_mara_false_call",
+          "fact_id": "false_mara_call_generated",
+          "can_hide": true,
+          "reveal_conditions": [
+            "false_mara_call"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "mara_divorce",
+          "mara_visit",
+          "mara_archive",
+          "mara_old_biometric",
+          "false_mara_call",
+          "voss_backup_gap",
+          "deleted_folder",
+          "mara_left_before_murder",
+          "false_mara_call_generated",
+          "janus_content",
+          "voss_illegal_trials_link"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "maîtrisé, personnel, parfois mordant",
+        "speech_rules": [
+          "Évite le jargon technique.",
+          "Devient très protectrice dès que son fils est évoqué.",
+          "Cache sa recherche des archives familiales tant qu'elle le peut.",
+          "Son faux souvenir de l'appel la bouleverse : elle ne l'a pas inventé consciemment."
+        ]
+      },
+      "game": {
+        "room": "archives_memorielles",
+        "face": 0,
+        "body": 1,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "noah_reyes",
+      "name": "Noah Reyes",
+      "role": "Ancien sujet expérimental",
+      "identity": {
+        "age": 31,
+        "type": "human"
+      },
+      "personality": [
+        "fragile",
+        "lucide par instants",
+        "méfiant"
+      ],
+      "public_description": "Ancien cobaye du programme, Noah vit avec des souvenirs dont il ne sait plus toujours s'ils lui appartiennent.",
+      "position_in_case": "Il était dans la Tour pour un contrôle neurologique et son emploi du temps comporte plusieurs zones d'incertitude.",
+      "motives": [
+        "Les expériences de Voss ont gravement altéré sa mémoire et sa santé.",
+        "Il tient Voss pour responsable de la perte de plusieurs années de sa vie."
+      ],
+      "alibi": {
+        "claim": "Il affirme avoir attendu son transport médical après son contrôle.",
+        "strength": "Le système médical confirme une consultation plus tôt dans la soirée.",
+        "weakness": "Ses souvenirs de la période suivante sont contradictoires et aucune personne ne l'a observé en continu."
+      },
+      "secrets": [
+        {
+          "id": "secret_noah_dual",
+          "fact_id": "noah_dual_memory",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "noah_damage",
+          "noah_route",
+          "noah_dual_memory",
+          "false_noah_corridor",
+          "maintenance_route",
+          "route_known",
+          "memory_editable",
+          "false_noah_memory_trial_artifact",
+          "noah_medical_tracker",
+          "voss_illegal_trials_link"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "hésitant, parfois très précis puis incertain",
+        "speech_rules": [
+          "Distingue toujours ce qu'il sait de ce dont il se souvient.",
+          "Peut corriger sa propre version sans chercher à tromper.",
+          "Ne transforme jamais un souvenir incertain en fait certain.",
+          "Accepte qu'un souvenir puisse être faux sans accepter qu'il soit sans importance émotionnelle."
+        ]
+      },
+      "game": {
+        "room": "atrium",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "iris_chen",
+      "name": "Iris Chen",
+      "role": "Ingénieure systèmes",
+      "identity": {
+        "age": 34,
+        "type": "human"
+      },
+      "personality": [
+        "rapide",
+        "pragmatique",
+        "sarcastique"
+      ],
+      "public_description": "Responsable d'une partie de l'infrastructure logicielle de MNESIS, Iris connaît les failles du système mieux que presque tout le monde.",
+      "position_in_case": "Elle affirme avoir travaillé dans la salle serveurs pendant la fenêtre critique.",
+      "motives": [
+        "Elle avait découvert des essais humains illégaux.",
+        "Voss menaçait de la tenir responsable si les autorités enquêtaient."
+      ],
+      "alibi": {
+        "claim": "Elle dit avoir réparé un nœud de stockage dans la salle serveurs.",
+        "strength": "La panne du nœud de stockage est réelle et nécessite plusieurs manipulations physiques dans la salle serveurs.",
+        "weakness": "Une ancienne clé dérivée de son identifiant est bien utilisée pendant le meurtre."
+      },
+      "secrets": [
+        {
+          "id": "secret_iris_trials",
+          "fact_id": "iris_illegal_trials",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_janus_backup",
+          "fact_id": "janus_partial_backup",
+          "can_hide": true,
+          "reveal_conditions": [
+            "deleted_folder"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "debug_console",
+          "logs_editable",
+          "memory_metadata",
+          "iris_illegal_trials",
+          "iris_root_tools",
+          "iris_credentials_used",
+          "camera_gap_cause_unknown",
+          "deleted_folder",
+          "iris_key_cloned",
+          "debug_console_remote_session",
+          "iris_storage_repair_real",
+          "janus_partial_backup",
+          "janus_content",
+          "voss_illegal_trials_link",
+          "camera_gap_from_maintenance",
+          "camera_gap_manual_sync"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "rapide, technique, sarcastique",
+        "speech_rules": [
+          "Utilise des métaphores informatiques.",
+          "Admet volontiers les faiblesses du système.",
+          "Cache d'abord son intention d'alerter les autorités.",
+          "Insiste sur la différence entre 'mes identifiants ont servi' et 'j'étais derrière la session'."
+        ]
+      },
+      "game": {
+        "room": "serveurs",
+        "face": 0,
+        "body": 0,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "julian_mercer",
+      "name": "Julian Mercer",
+      "role": "Représentant des investisseurs",
+      "identity": {
+        "age": 50,
+        "type": "human"
+      },
+      "personality": [
+        "courtois",
+        "froid",
+        "stratégique"
+      ],
+      "public_description": "Mercer représente les principaux investisseurs de MNESIS et parle toujours comme si chaque catastrophe pouvait encore devenir une négociation.",
+      "position_in_case": "Il a rencontré Voss peu avant le meurtre, affirme ensuite avoir quitté l'étage, mais son jeton exécutif est encore utilisé dans l'anneau technique.",
+      "motives": [
+        "L'annonce de Voss pouvait détruire la valeur de plusieurs brevets et investissements.",
+        "Une rupture avec Voss menaçait le contrôle financier exercé par ses mandants."
+      ],
+      "alibi": {
+        "claim": "Il affirme avoir quitté l'étage après sa réunion avec Voss pour préparer un appel aux investisseurs.",
+        "strength": "Son terminal initie bien une conférence plus tard, et il n'a pas d'accès permanent direct au laboratoire.",
+        "weakness": "Son jeton est utilisé près du laboratoire à 21 h 43 et une trace matérielle le relie à la prise de maintenance."
+      },
+      "secrets": [
+        {
+          "id": "secret_mercer_finance",
+          "fact_id": "mercer_finance",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_mercer_access_package",
+          "fact_id": "mercer_bought_access_package",
+          "can_hide": true,
+          "reveal_conditions": [
+            "mercer_finance"
+          ]
+        },
+        {
+          "id": "secret_mercer_janus_delete",
+          "fact_id": "janus_deleted_by_mercer",
+          "can_hide": true,
+          "reveal_conditions": [
+            "deleted_folder",
+            "mercer_exec_token_near_lab"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "voss_announcement",
+          "mercer_finance",
+          "mercer_private_meeting",
+          "mercer_exec_token",
+          "no_normal_entry",
+          "camera_gap",
+          "interface_local_or_remote",
+          "mercer_opposed_disclosure",
+          "voss_planned_disclosure",
+          "janus_patent_risk",
+          "mercer_bought_access_package",
+          "mercer_exec_token_near_lab",
+          "mercer_claim_left_floor",
+          "janus_deleted_by_mercer",
+          "mercer_not_memory_expert",
+          "mercer_glove_residue"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "très poli, froid, orienté négociation",
+        "speech_rules": [
+          "Ne hausse jamais le ton.",
+          "Réduit les conflits moraux à des risques contractuels.",
+          "Évite de nommer ses mandants précis sauf confrontation.",
+          "Présente toute preuve technique comme une question de chaîne de possession jusqu'à ce que plusieurs sources indépendantes convergent."
+        ]
+      },
+      "game": {
+        "room": "atrium",
+        "face": 1,
+        "body": 0,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "from": "lena_orlov",
+      "to": "adrian_voss",
+      "type": "cofondateurs_en_conflit",
+      "description": "Lena a cofondé MNESIS avec Voss mais considère qu'il s'est approprié une partie de ses travaux et préparait son éviction."
+    },
+    {
+      "from": "mara_voss",
+      "to": "adrian_voss",
+      "type": "epoux_separes",
+      "description": "Leur séparation est conflictuelle, aggravée par les actions de MNESIS et les souvenirs liés à leur fils décédé."
+    },
+    {
+      "from": "noah_reyes",
+      "to": "adrian_voss",
+      "type": "ancien_sujet_et_directeur_essai",
+      "description": "Noah tient Voss pour responsable de ses séquelles neurologiques et mémorielles."
+    },
+    {
+      "from": "iris_chen",
+      "to": "adrian_voss",
+      "type": "ingenieure_et_dirigeant_en_conflit",
+      "description": "Iris a découvert des essais illégaux et menaçait de les révéler ; Voss cherchait à contenir le scandale."
+    },
+    {
+      "from": "elias_kane",
+      "to": "adrian_voss",
+      "type": "securite_sous_audit",
+      "description": "Voss avait lancé un audit du service de Kane susceptible de révéler ses ventes clandestines de données."
+    },
+    {
+      "from": "julian_mercer",
+      "to": "adrian_voss",
+      "type": "investisseurs_en_conflit",
+      "description": "Mercer représente des investisseurs menacés par l'annonce que Voss comptait faire sur JANUS."
+    },
+    {
+      "from": "lena_orlov",
+      "to": "iris_chen",
+      "type": "alliees_scientifiques_mefiantes",
+      "description": "Elles partagent des inquiétudes sur l'éthique de MNESIS mais ne se font pas totalement confiance."
+    },
+    {
+      "from": "iris_chen",
+      "to": "elias_kane",
+      "type": "infra_securite_en_tension",
+      "description": "Iris reproche à Kane des pratiques de sécurité opaques ; Kane considère ses outils root comme un risque permanent."
+    },
+    {
+      "from": "elias_kane",
+      "to": "julian_mercer",
+      "type": "lien_indirect_par_intermediaire",
+      "description": "Kane n'a pas vendu directement à Mercer, mais les données qu'il a cédées ont fini chez un intermédiaire lié aux investisseurs de Mercer."
+    },
+    {
+      "from": "mara_voss",
+      "to": "noah_reyes",
+      "type": "solidarite_fragile",
+      "description": "Mara voit en Noah une autre victime des choix d'Adrian, même si leurs motivations restent différentes."
+    },
+    {
+      "from": "julian_mercer",
+      "to": "lena_orlov",
+      "type": "opposition_strategique",
+      "description": "Mercer craint que Lena soutienne publiquement la remise en cause de la propriété intellectuelle de MNESIS."
+    }
+  ],
+  "timeline": [
+    {
+      "time": "20:55",
+      "event": "Voss finalise sa décision de révéler JANUS le lendemain malgré l'opposition des investisseurs.",
+      "fact_ids": [
+        "voss_announcement",
+        "voss_planned_disclosure",
+        "janus_content",
+        "janus_patent_risk"
+      ]
+    },
+    {
+      "time": "21:02",
+      "event": "Voss crée volontairement un vide dans sa propre sauvegarde mémorielle pour masquer sa préparation de JANUS.",
+      "fact_ids": [
+        "voss_backup_gap",
+        "voss_memory_gap_selfmade"
+      ]
+    },
+    {
+      "time": "21:08",
+      "event": "Mercer rencontre Voss et exige l'annulation de l'annonce. Voss refuse.",
+      "fact_ids": [
+        "mercer_private_meeting",
+        "mercer_opposed_disclosure"
+      ]
+    },
+    {
+      "time": "21:19",
+      "event": "Mercer quitte officiellement la réunion et affirme ensuite être descendu vers l'atrium.",
+      "fact_ids": [
+        "mercer_private_meeting",
+        "mercer_claim_left_floor"
+      ]
+    },
+    {
+      "time": "21:27",
+      "event": "Mara quitte la zone sécurisée après avoir recherché des archives familiales.",
+      "fact_ids": [
+        "mara_visit",
+        "mara_archive",
+        "mara_left_before_murder"
+      ]
+    },
+    {
+      "time": "21:32",
+      "event": "Les journaux officiels cessent d'enregistrer toute entrée normale dans le laboratoire.",
+      "fact_ids": [
+        "no_normal_entry"
+      ]
+    },
+    {
+      "time": "21:38",
+      "event": "Lena quitte quelques minutes sa réunion technique et se place dans une cabine locale pour consulter des données.",
+      "fact_ids": [
+        "lena_meeting_gap",
+        "lena_cabin_log"
+      ]
+    },
+    {
+      "time": "21:41",
+      "event": "Iris commence une réparation physique réelle sur un nœud de stockage en salle serveurs.",
+      "fact_ids": [
+        "iris_storage_repair_real"
+      ]
+    },
+    {
+      "time": "21:43",
+      "event": "Le jeton exécutif de Mercer ouvre une porte de service menant à l'anneau technique.",
+      "fact_ids": [
+        "mercer_exec_token_near_lab",
+        "mercer_claim_left_floor"
+      ]
+    },
+    {
+      "time": "21:44",
+      "event": "Noah subit une crise neurologique dans l'atrium, enregistrée par son bracelet médical.",
+      "fact_ids": [
+        "noah_medical_tracker"
+      ]
+    },
+    {
+      "time": "21:45",
+      "event": "Depuis une prise de maintenance, une session distante est ouverte avec une clé clonée dérivée d'un ancien identifiant d'Iris.",
+      "fact_ids": [
+        "iris_credentials_used",
+        "iris_key_cloned",
+        "debug_console_remote_session",
+        "package_contains_iris_credential"
+      ]
+    },
+    {
+      "time": "21:46",
+      "event": "La prise de maintenance injecte une commande manuelle de resynchronisation qui coupe quatorze secondes de vidéo.",
+      "fact_ids": [
+        "camera_gap",
+        "camera_gap_manual_sync",
+        "camera_gap_from_maintenance"
+      ]
+    },
+    {
+      "time": "21:47",
+      "event": "La console distante vérifie le seuil neuro-électrique personnel de Voss puis envoie la commande de surcharge.",
+      "fact_ids": [
+        "debug_console",
+        "overload_command_signature",
+        "interface_local_or_remote"
+      ]
+    },
+    {
+      "time": "21:48",
+      "event": "Mara croit se souvenir d'un appel avec Adrian ; ce souvenir provient en réalité d'un ancien enregistrement injecté dans une sauvegarde familiale.",
+      "fact_ids": [
+        "false_mara_call",
+        "false_mara_call_generated"
+      ]
+    },
+    {
+      "time": "21:49",
+      "event": "Kane croit avoir acquitté une alarme technique ; il s'agit d'une reconstruction mémorielle automatique produite après l'événement système.",
+      "fact_ids": [
+        "false_kane_alarm",
+        "false_kane_alarm_autogenerated"
+      ]
+    },
+    {
+      "time": "21:50",
+      "event": "Noah possède un souvenir parasite le plaçant dans le couloir, fragment issu d'un ancien essai.",
+      "fact_ids": [
+        "false_noah_corridor",
+        "false_noah_memory_trial_artifact"
+      ]
+    },
+    {
+      "time": "21:52",
+      "event": "La surcharge provoque la mort de Voss.",
+      "fact_ids": [
+        "cause_overload",
+        "death_window"
+      ]
+    },
+    {
+      "time": "21:54",
+      "event": "La session utilisant le jeton exécutif de Mercer demande la suppression de JANUS.",
+      "fact_ids": [
+        "deleted_folder",
+        "janus_deleted_by_mercer"
+      ]
+    },
+    {
+      "time": "21:56",
+      "event": "Les journaux officiels reprennent leur fonctionnement normal.",
+      "fact_ids": [
+        "no_normal_entry"
+      ]
+    },
+    {
+      "time": "22:03",
+      "event": "Une copie partielle de JANUS subsiste sur un stockage de secours non indexé.",
+      "fact_ids": [
+        "janus_partial_backup",
+        "voss_illegal_trials_link"
+      ]
+    },
+    {
+      "time": "22:12",
+      "event": "La sécurité relève sur le gant de Mercer une poussière conductrice identique à celle de la prise de maintenance utilisée.",
+      "fact_ids": [
+        "mercer_glove_residue",
+        "maintenance_connector_residue"
+      ]
+    }
+  ],
+  "clues": [
+    {
+      "id": "rapport_autopsie_neurale",
+      "name": "Rapport d'autopsie neurale",
+      "description": "Le rapport fixe la fenêtre de mort et établit une surcharge neuro-électrique volontairement paramétrable.",
+      "reveals_fact_ids": [
+        "cause_overload",
+        "death_window",
+        "interface_local_or_remote",
+        "overload_command_signature"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "journal_acces_officiel",
+      "name": "Journal d'accès officiel",
+      "description": "Aucune entrée normale dans le laboratoire n'apparaît pendant la fenêtre critique, mais le système est administrativement modifiable.",
+      "reveals_fact_ids": [
+        "no_normal_entry",
+        "logs_editable"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "plan_maintenance",
+      "name": "Plan de l'anneau technique",
+      "description": "Le plan montre un passage permettant d'atteindre l'arrière du laboratoire sans franchir le sas principal.",
+      "reveals_fact_ids": [
+        "maintenance_route",
+        "route_known"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "rapport_cameras",
+      "name": "Rapport des caméras",
+      "description": "La coupure de quatorze secondes provient d'une resynchronisation manuelle injectée depuis l'anneau technique.",
+      "reveals_fact_ids": [
+        "camera_gap",
+        "camera_gap_manual_sync",
+        "camera_gap_from_maintenance"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "trace_console_debug",
+      "name": "Trace de la console de débogage",
+      "description": "Une session distante utilisant une clé dérivée d'un ancien identifiant d'Iris a contrôlé la console ayant envoyé la surcharge.",
+      "reveals_fact_ids": [
+        "debug_console",
+        "iris_credentials_used",
+        "debug_console_remote_session"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_cle_iris",
+      "name": "Analyse de la clé d'Iris",
+      "description": "L'analyse montre que la clé a été clonée et figurait dans un paquet de données de sécurité vendu clandestinement.",
+      "reveals_fact_ids": [
+        "iris_key_cloned",
+        "package_contains_iris_credential",
+        "kane_data_sales"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "transaction_intermediaire",
+      "name": "Transaction de l'intermédiaire",
+      "description": "Un paiement relie l'achat du paquet de sécurité à un intermédiaire travaillant pour les mandants de Mercer.",
+      "reveals_fact_ids": [
+        "mercer_bought_access_package",
+        "kane_did_not_know_buyer"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "journal_jeton_mercer",
+      "name": "Journal du jeton exécutif",
+      "description": "Le jeton de Mercer ouvre une porte de service vers l'anneau technique à 21 h 43, contredisant son départ annoncé.",
+      "reveals_fact_ids": [
+        "mercer_exec_token",
+        "mercer_exec_token_near_lab",
+        "mercer_claim_left_floor"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_residus_connecteur",
+      "name": "Analyse des résidus conducteurs",
+      "description": "La même poussière conductrice est trouvée sur le gant de Mercer et autour de la prise de maintenance utilisée.",
+      "reveals_fact_ids": [
+        "mercer_glove_residue",
+        "maintenance_connector_residue"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "sauvegarde_janus",
+      "name": "Sauvegarde partielle de JANUS",
+      "description": "Une copie chiffrée révèle que JANUS démontrait la fabrication de souvenirs indiscernables et contenait des traces d'essais humains non déclarés.",
+      "reveals_fact_ids": [
+        "janus_partial_backup",
+        "janus_content",
+        "janus_patent_risk",
+        "voss_illegal_trials_link"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "trace_suppression_janus",
+      "name": "Trace de suppression JANUS",
+      "description": "La suppression postérieure à la mort de Voss a été demandée depuis une session utilisant le jeton exécutif de Mercer.",
+      "reveals_fact_ids": [
+        "deleted_folder",
+        "janus_deleted_by_mercer"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "notes_reunion_voss_mercer",
+      "name": "Notes de la réunion Voss-Mercer",
+      "description": "Les notes montrent que Mercer a demandé l'abandon de l'annonce JANUS et que Voss a refusé.",
+      "reveals_fact_ids": [
+        "mercer_private_meeting",
+        "mercer_opposed_disclosure",
+        "voss_planned_disclosure"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "journal_cabine_lena",
+      "name": "Journal de la cabine de Lena",
+      "description": "Une session locale continue couvre l'essentiel de l'absence de Lena à la réunion et n'accède pas au système de surcharge.",
+      "reveals_fact_ids": [
+        "lena_meeting_gap",
+        "lena_cabin_log"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "rapport_panne_iris",
+      "name": "Rapport de panne du nœud de stockage",
+      "description": "La panne réparée par Iris est réelle et exige plusieurs opérations physiques dans la salle serveurs.",
+      "reveals_fact_ids": [
+        "iris_storage_repair_real"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "bracelet_noah",
+      "name": "Journal du bracelet médical de Noah",
+      "description": "Le bracelet enregistre une crise neurologique dans l'atrium pendant une partie critique de la séquence.",
+      "reveals_fact_ids": [
+        "noah_medical_tracker"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_souvenir_noah",
+      "name": "Analyse du souvenir de Noah",
+      "description": "Son souvenir du couloir correspond à un fragment parasite provenant d'une ancienne séance.",
+      "reveals_fact_ids": [
+        "false_noah_corridor",
+        "false_noah_memory_trial_artifact",
+        "noah_dual_memory"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_souvenir_mara",
+      "name": "Analyse du faux appel de Mara",
+      "description": "Le souvenir de l'appel de 21 h 48 est dérivé d'un ancien enregistrement et non d'un appel réel ce soir-là.",
+      "reveals_fact_ids": [
+        "false_mara_call",
+        "false_mara_call_generated"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "journal_sortie_mara",
+      "name": "Journal de sortie de Mara",
+      "description": "Les données de hall et de transport vertical placent Mara hors de la zone sécurisée avant le meurtre.",
+      "reveals_fact_ids": [
+        "mara_visit",
+        "mara_left_before_murder"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_souvenir_kane",
+      "name": "Analyse de l'alarme mémorielle de Kane",
+      "description": "Le souvenir d'acquittement à 21 h 49 est une reconstruction automatique apparue après l'alerte.",
+      "reveals_fact_ids": [
+        "false_kane_alarm",
+        "false_kane_alarm_autogenerated"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "sauvegarde_voss",
+      "name": "Sauvegarde mémorielle de Voss",
+      "description": "Elle contient un vide de huit minutes créé volontairement par Voss pour cacher son travail sur JANUS.",
+      "reveals_fact_ids": [
+        "voss_backup_gap",
+        "voss_memory_gap_selfmade"
+      ],
+      "discoverable": true
+    }
+  ],
+  "map": {
+    "_aide": [
+      "rows : le plan, une chaine par ligne. '2' = mur, 'v' = porte verticale, 'h' = porte horizontale, espace = sol.",
+      "Cette carte n'utilise volontairement aucun mur '1' et aucune double epaisseur de murs.",
+      "Toutes les lignes doivent faire la meme longueur que width.",
+      "player_start : ou le joueur entre. Doit etre une case de sol.",
+      "rooms : une piece = un identifiant, un nom affiche, et UN POINT a l'interieur ('at').",
+      "Le moteur remplit la zone depuis ce point : les murs et portes separent les zones.",
+      "Les portes sont trouvees toutes seules et reliees aux deux pieces qu'elles separent.",
+      "IMPORTANT : le joueur avance de deux colonnes a la fois. Les circulations gardent plusieurs colonnes utiles."
+    ],
+    "width": 66,
+    "rows": [
+      "222222222222222222222222222222222222222222222222222222222222222222",
+      "2              2    2                   2    2                   2",
+      "2              2    2                   2    2                   2",
+      "2              v    v                   v    v                   2",
+      "2              2    2                   2    2                   2",
+      "2              2    2                   2    2                   2",
+      "2         222222    22222222222h222222222    222222              2",
+      "2         v                                       2              2",
+      "2         2                                       2              2",
+      "22222222222         2222222h22222222         222222222222222222222",
+      "2         v         2              2         2                   2",
+      "2         2         2              2         v                   2",
+      "2         2    222222              222222    2                   2",
+      "2         2    2                        2    2                   2",
+      "2         2    v                        v    2                   2",
+      "2         v    2                        2    2                   2",
+      "2         2    2                        2    2                   2",
+      "2         2    2                        2    2                   2",
+      "2    222222    222222              222222    22222222h2222222    2",
+      "2    2              2              2         2              2    2",
+      "2    2              2              2         2              2    2",
+      "2222222222222222    2222222h22222222         2              222222",
+      "2              2                             2                   2",
+      "2              v                             v                   2",
+      "2              222222222222222222222    222222    2222222222222222",
+      "2                   v              2    2         v              2",
+      "2                   2              v    2         2              2",
+      "2                   2              2    22222222222              2",
+      "2                   2              2         2                   2",
+      "2                   2              2         v                   2",
+      "2                   222222    222222    222222                   2",
+      "2                        2    2         2                        2",
+      "2                        2    2         2                        2",
+      "222222222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 7,
+      "y": 28
+    },
+    "rooms": [
+      {
+        "id": "serveurs",
+        "name": "Noyau serveurs",
+        "at": {
+          "x": 2,
+          "y": 1
+        }
+      },
+      {
+        "id": "salle_calibration",
+        "name": "Salle de calibration",
+        "at": {
+          "x": 22,
+          "y": 1
+        }
+      },
+      {
+        "id": "observation",
+        "name": "Salle d’observation",
+        "at": {
+          "x": 47,
+          "y": 1
+        }
+      },
+      {
+        "id": "securite",
+        "name": "Poste de sécurité",
+        "at": {
+          "x": 2,
+          "y": 10
+        }
+      },
+      {
+        "id": "anneau_technique",
+        "name": "Anneau technique",
+        "at": {
+          "x": 17,
+          "y": 1
+        }
+      },
+      {
+        "id": "laboratoire_central",
+        "name": "Laboratoire central",
+        "at": {
+          "x": 22,
+          "y": 10
+        }
+      },
+      {
+        "id": "archives_memorielles",
+        "name": "Archives mémorielles",
+        "at": {
+          "x": 47,
+          "y": 10
+        }
+      },
+      {
+        "id": "atrium",
+        "name": "Atrium",
+        "at": {
+          "x": 2,
+          "y": 22
+        }
+      },
+      {
+        "id": "decontamination",
+        "name": "Décontamination",
+        "at": {
+          "x": 22,
+          "y": 25
+        }
+      },
+      {
+        "id": "maintenance",
+        "name": "Maintenance",
+        "at": {
+          "x": 47,
+          "y": 19
+        }
+      },
+      {
+        "id": "suite_memoire",
+        "name": "Suite mémoire expérimentale",
+        "at": {
+          "x": 52,
+          "y": 25
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_aide": [
+      "suspect_ids : parmi eux sera tire le coupable si solution.culprit_id vaut null.",
+      "Laissez culprit_id a null : le moteur tire un coupable a chaque nouvelle partie et fait",
+      "  generer une resolution coherente avec vos faits. L'enquete est donc rejouable.",
+      "Fixez culprit_id si vous voulez toujours le meme coupable."
+    ],
+    "victim": {
+      "id": "adrian_voss",
+      "name": "Dr Adrian Voss",
+      "age": 55,
+      "role": "Fondateur de MNESIS Industries"
+    },
+    "crime": {
+      "type": "homicide",
+      "location": "Laboratoire central",
+      "time_window": {
+        "start": "21:40",
+        "end": "21:55"
+      },
+      "cause": "Surcharge neuro-électrique provoquée via l'interface mémoire"
+    },
+    "suspect_ids": [
+      "lena_orlov",
+      "elias_kane",
+      "mara_voss",
+      "noah_reyes",
+      "iris_chen",
+      "julian_mercer"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": "julian_mercer",
+      "explanation": "Julian Mercer a tué Adrian Voss pour empêcher la divulgation de JANUS, dont la publication menaçait la valeur de plusieurs brevets et contrats de MNESIS ainsi que les intérêts des investisseurs qu'il représentait. Mercer n'était pas un expert de la technologie mémorielle ; il a exploité un paquet de sécurité acheté par un intermédiaire lié à ses mandants. Ce paquet provenait des ventes clandestines d'Elias Kane et contenait notamment la topologie de l'anneau technique et une ancienne clé dérivée d'un identifiant d'Iris Chen. À 21 h 43, le jeton exécutif de Mercer ouvre une porte de service, contredisant son affirmation d'avoir quitté l'étage. Depuis une prise de maintenance, il utilise la clé clonée d'Iris pour ouvrir une session distante, provoque une coupure caméra de quatorze secondes puis accède à la console de débogage. La console vérifie manuellement le seuil neuro-électrique personnel de Voss avant d'envoyer la surcharge fatale : il ne s'agit donc pas d'un simple accident. Après la mort, une session utilisant le jeton de Mercer demande la suppression du dossier JANUS. Une copie partielle subsiste cependant sur un stockage de secours et révèle à la fois la capacité de MNESIS à fabriquer des souvenirs synthétiques indiscernables et les traces d'essais humains non déclarés. Plusieurs fausses pistes sont réelles sans mener au meurtre : Lena avait un mobile scientifique et une absence inexpliquée mais la cabine confirme sa session locale ; Iris possède les outils et ses anciens identifiants apparaissent dans les traces, mais la clé a été clonée et sa panne serveur est réelle ; Kane a bien vendu des données illégalement, mais ne connaissait pas le bénéficiaire final et la coupure caméra vient de l'anneau technique ; Mara ment sur sa visite mais quitte la zone avant le meurtre ; Noah possède un souvenir du couloir qui est un fragment parasite d'un ancien essai. Les faux souvenirs de Mara, Noah et Kane illustrent le thème central de l'affaire : dans MNESIS, une mémoire sincère peut être fausse. Le faisceau décisif contre Mercer repose sur son mobile financier, le paquet de sécurité acheté par son intermédiaire, son jeton utilisé à 21 h 43, la session distante issue de la prise de maintenance, la poussière conductrice identique sur son gant et le connecteur, puis la suppression de JANUS avec son jeton après la mort.",
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null,
+  "_aide_relationships": [
+    "relationships : liens documentaires servant a garder mobiles, conflits et solidarites coherents.",
+    "Le moteur ne les envoie pas encore directement au modele."
+  ],
+  "_aide_timeline": [
+    "timeline : chronologie vraie de l'auteur, jamais envoyee aux personnages.",
+    "fact_ids relient chaque evenement aux faits accessibles au joueur."
+  ],
+  "_aide_clues": [
+    "clues : pieces a conviction accessibles sur demande.",
+    "Une piece est produisible par un personnage qui connait au moins un fait revele.",
+    "Les preuves decisives contre Mercer sont reparties entre plusieurs personnages et plusieurs pieces."
+  ]
+}

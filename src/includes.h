@@ -62,6 +62,7 @@
 #define PAIR_WHITE		7
 
 /* Paires semantiques (voir start_game). */
+#define PAIR_BORDER		24		/* trait des cadres : les quatre cotes, partout */
 #define PAIR_TITLE		26
 #define PAIR_HEADING	27
 #define PAIR_GOOD		28
@@ -205,6 +206,10 @@ typedef struct s_game {
 	char	interject_context[768];			// ce qu'il vient d'entendre
 	int		interject_speaker;				// de qui il l'a entendu
 	int		interject_chain;				// interventions depuis la derniere question
+	/* L'intervention en attente est une arrivee : il a traverse le batiment
+	 * POUR parler a quelqu'un. Il a donc quelque chose a dire, alors que celui
+	 * qui surprend une conversation, lui, n'a rien a livrer. */
+	int		interject_is_arrival;
 	int		reply_is_interjection;			// la reponse en vol est une intervention
 
 	// L'analyse memoire a son propre emplacement : elle tourne en tache de
@@ -244,6 +249,9 @@ int ask_for_display_update(Game *game);
 void move_cursor_back(Game *game);
 void print_talk_hint(Game *game);
 void draw_input(Game *game);
+/* Redessine les cadres du PLAN et de l'ENTRETIEN avec la couleur du mode en
+ * cours : c'est ce qui dit sur quelle zone le clavier agit. */
+void draw_window_frames(Game *game);
 /* Ecrit "<prefixe>[Touche]<libelle>" avec la couleur de touche habituelle et
  * renvoie la colonne suivante. */
 int  print_key_hint(int y, int x, const char *prefix, const char *key, const char *label);

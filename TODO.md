@@ -1,9 +1,155 @@
 # Prochaines modifications
 
-# Remarques gameplay
+# To do
 
-On dirait que l'enquete n'avance pas, malgré les questions les npcs ne sont pas si coopératifs et ne donnent quasiment aucune information qui aide a avancer. Le joueur n'obtient pas de pistes intéressantes, les quelques piste offertes par un npc sont contredites par un autre.. On dirait qu'il n'y a pas de solution pour résoudre l'histoire.
+- Ajouter un parametre au lancement de l'histoire pour choisir la difficulté
+- (facultatif) Ecarter au tirage un coupable dont rien n'est atteignable sans lui
+    Plus necessaire sur Projet Echo, ou les 5 suspects passent le test. Ce serait un garde-fou pour les
+    histoires mal ecrites, en plus du message d'avertissement.
 
+# Plus tard
+
+- Un inventaire
+- Ajouter des objets
+- Des objets interactifs (ex: pc, digicode, ..)
+- Avoir des portes ouvrables par certains NPC ou avec clé / code / a distance
+
+# Done
+
+- Le mode en cours se lit sur les cadres, et la ligne « piece + interlocuteur » ressort
+    Seule la zone de saisie changeait d'aspect avec le mode : rien ne disait, en un coup d'oeil, si les
+    fleches allaient deplacer le personnage ou le curseur.
+    Le cadre ALLUME est celui sur lequel le clavier agit, la meme regle que la saisie qui verdit :
+    hors mode discussion le PLAN est vert (les fleches deplacent le personnage) et l'ENTRETIEN gris ;
+    en mode discussion c'est l'inverse. Les intitules suivent la couleur de leur cadre.
+    `draw_window_frames()` (main.c) est appelee au demarrage et a chaque changement de mode — le rendu de
+    la carte ne redessine pas le cadre, donc il fallait le rappeler explicitement. La colonne de droite
+    repeinte a chaque image par draw_map_iso suit la meme couleur, sinon elle restait grise sur un cadre
+    allume.
+    La ligne 1 (piece, personnes presentes, interlocuteur vise) se perdait entre la barre du haut et le
+    cadre : la piece est maintenant une pastille en video inverse, et l'interlocuteur vise porte un
+    chevron « ▸ » et son nom en video inverse, au lieu d'un simple souligne qui se confondait avec les
+    autres noms deja colores.
+    Verifie hors ligne en rendant le meme code dans un ncurses hors du jeu (les fonctions sont static) :
+    couleurs des deux cadres dans les deux modes, pastille de piece, chevron et inversion du nom vise,
+    noms non vises en attenue. Pas encore vu dans une vraie partie.
+    Cette ligne est aussi CENTREE dans le terminal, et separee de la barre des touches par une ligne
+    vide (elle passe de la ligne 1 a la ligne 2, qui etait deja libre : les fenetres commencent a la 3,
+    donc rien ne bouge en dessous). Pour la centrer il faut connaitre sa largeur avant de l'ecrire : elle
+    est desormais assemblee en morceaux (texte + attributs), mesuree, puis dessinee — une mesure ecrite
+    a part aurait fini par mentir. Effet de bord utile : le libelle de la touche s'abrege au lieu de se
+    faire couper par la droite (a deux personnes dans la piece, la version longue depassait les 80
+    colonnes). Geometrie verifiee sur 40, 60, 80 et 120 colonnes.
+
+- Barre de progression au lancement de l'enquete
+    Le briefing n'avait qu'un tourniquet (`Preparation de l'enquete... |`), et le lancement enchaine
+    maintenant deux appels au modele : on ne voyait pas ou on en etait.
+    La barre avance par ETAPES terminees, jamais en pourcentage : la duree d'un appel est inconnue, donc
+    un pourcentage serait invente. Deux etapes fixes — « Reconstitution de l'affaire » (la resolution)
+    puis « Verification / Constitution du dossier de preuves » (le comblement des trous, qui n'emet un
+    appel que s'il y a des trous). L'etape en cours est traversee par un reflet qui va et vient, pour
+    qu'on voie que ca travaille sans pretendre savoir combien il reste ; les etapes finies sont pleines
+    et vertes. Le message final (dont les avertissements de solubilite) remplace la barre : il peut etre
+    long et doit rester lisible sur un terminal etroit.
+    La largeur s'adapte a la fenetre (40 colonnes au plus, moins si besoin) et se clampe a 20.
+    Verifie hors ligne : geometrie simulee sur plusieurs largeurs (dont une largeur impaire, qui laissait
+    un creux a la fin — corrige) et rendu d'une COPIE de la fonction dans un ncurses hors du jeu (elle
+    est static dans menu.c, donc non liable depuis un test), pour confirmer les glyphes et les couleurs.
+    Pas encore vu dans une vraie partie.
+
+- Le modele complete lui-meme l'histoire au lancement quand elle n'est pas soluble
+    Il generait deja la resolution, le brief du coupable et la liste des elements a charge ; il ne
+    fabriquait pas ce qui manquait pour les OBTENIR. Une histoire ou le coupable tire au sort est le
+    seul a connaitre ce qui l'accuse restait injouable, et le moteur se contentait de l'annoncer.
+    Repartition des roles, dans la logique du reste du moteur : le moteur DECIDE, le modele ECRIT.
+    1. Apres la resolution, `fill_solubility_gaps()` (menu.c) calcule les faits a charge que personne
+       d'autre que le coupable ne peut donner — `story_fact_obtainable_without()`, rien a deviner.
+       Zero trou = ZERO appel : une histoire bien ecrite ne coute rien de plus.
+    2. `prompt_build_clue_fill()` ne demande que ces faits-la, avec la liste des detenteurs possibles
+       calculee par le moteur (personnages places sur la carte, jamais le coupable) et les pieces qui
+       existent deja, pour ne pas en refaire une equivalente. Le modele ne fournit que la piece
+       (identifiant, nom, description dans le ton de l'affaire) et le detenteur choisi dans la liste.
+    3. `clue_fill_parse()` jette tout ce qui n'est pas utilisable : fait invente, fait hors du perimetre
+       demande, detenteur inconnu, detenteur absent de la carte, detenteur = le coupable, identifiant
+       qui collerait avec un indice d'auteur.
+    4. Chaque piece est doublee d'un `extra_knowledge` : le detenteur apprend le fait. C'EST CA qui
+       debloque l'enquete — dans ce moteur, une piece n'est sortable que par quelqu'un qui connait
+       deja l'un des faits qu'elle etablit. Une piece seule serait restee decorative.
+    5. Le filtre des elements a charge tourne APRES la reparation : il n'ecarte plus que ce qui reste
+       vraiment inatteignable, et le message « aucune preuve n'est accessible sans l'aveu » devient un
+       dernier recours au lieu du cas courant.
+    Ou ca vit : dans la SAUVEGARDE (`generated_clues`, `extra_knowledge`), jamais dans le fichier
+    d'histoire. Les indices utiles dependent du coupable tire, donc de la partie ; l'histoire reste la
+    verite de l'auteur, partagee par toutes les sauvegardes, et le jeu ne reecrit pas un fichier que le
+    joueur n'a pas demande a modifier. `story_apply_additions()` les verse dans la Story chargee en
+    memoire — a la reprise d'une partie et apres chaque generation — et le reste du moteur ne fait plus
+    la difference avec un indice d'auteur. Idempotent, et il ne reloue jamais le tableau `characters`
+    pour que les PNJ gardent leur pointeur `def`.
+    `[R]` recharge l'histoire depuis le disque : sans ca, les indices de la partie precedente auraient
+    traine dans la nouvelle, avec un autre coupable.
+    Les vieilles sauvegardes n'ont pas ces deux cles : les tableaux restent vides et rien ne change.
+    Verifie par `tests/test_clue_fill.c` (23 verifications, toutes passees) sur une histoire ecrite
+    expres pour etre verrouillee : detection du trou, prompt qui ne demande que lui et ne propose pas le
+    coupable, rejet des quatre formes de reponse invalide, application (le fait devient atteignable),
+    idempotence, ecriture/relecture de la sauvegarde, et re-application au rechargement.
+    Pas encore vu en partie reelle : il faut une histoire mono-source pour declencher un appel. Projet
+    Echo, desormais doublement sourcee, n'en declenche aucun ; n'importe laquelle des autres (toutes en
+    `clues: []` avec un seul detenteur par fait) le fera au premier lancement.
+
+- Voir si on peut réduire les tokens 
+- Reduire la consommation de jetons sans toucher a la qualite
+    L'entree represente ~74% de la facture (mesure sur `guinet.json` : 2043 jetons d'entree contre
+    481 de sortie par appel), et cette entree est presque toujours le MEME texte. Le fournisseur la
+    facture une fraction du prix quand il peut la servir depuis son cache de prefixe — mais on cassait
+    ce prefixe. Rien n'a ete retire du prompt : tout est du deplacement de blocs.
+    - Prompt de dialogue : « Sont aussi presents, et vous entendent : ... » et « Tu es interroge par X »
+      etaient a l'octet 755 sur 7000, en pleine partie stable. Ils descendent avec le reste de la scene,
+      a cote de « TU TE TROUVES DANS ». Le bloc premier contact / deja parle, qui ne bascule qu'une fois
+      par partie, remonte au contraire dans la partie stable.
+      Prefixe commun d'un tour a l'autre : 11% -> 80% quand quelqu'un entre dans la piece,
+      9% -> 79% pour une intervention. Meme scene, autre question : 100% avant comme apres.
+    - Prompt d'analyse : l'echange a analyser etait ecrit EN TETE, donc les 3700 octets de listes et de
+      consignes qui suivaient etaient refactures a chaque fois. Il passe en dernier : 4% -> 98%.
+    - La liste d'indices de l'analyse ne contient plus que les pieces que CE personnage peut sortir,
+      comme le prompt de dialogue (helper `character_holds_clue`, partage par les deux). L'analyse perd
+      500 octets et ne peut plus attribuer a l'un ce qu'un autre detient.
+    - `deepseek_client` lit enfin `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens` et la barre du
+      bas affiche « cache NN% » quand l'API les rapporte. Sans ca, l'effet des points ci-dessus n'etait
+      pas mesurable en jeu. Compteur de session, pas conserve dans la sauvegarde.
+    Non fait volontairement : le niveau de raisonnement reste a `high`. C'est le plus gros levier de
+    sortie (481 jetons/appel pour une replique de ~180) mais c'est justement lui qui paye l'esquive et
+    la confrontation.
+    Asymetrie assumee : l'analyse met ses consignes de format AVANT l'echange (c'est ce qui donne 98%
+    au lieu de ~55%), le dialogue les garde en toute fin. Une replique mal formee se voit a l'ecran et
+    coute le tour au joueur ; une analyse mal formee est ignoree par `analysis_parse` et retentee a
+    l'echange suivant. On prend donc le cache d'un cote, la fiabilite de l'autre. Les remonter aussi
+    dans le dialogue vaudrait ~10 points de cache de plus, au risque du format.
+    Les pourcentages ci-dessus sont des plafonds (part de prefixe partagee), pas une baisse de facture :
+    le premier appel de chaque personnage est toujours un echec de cache, et le tarif d'un jeton mis en
+    cache reste a verifier. C'est le « cache NN% » en jeu qui donnera le vrai chiffre.
+    `OFFSCRIPT_DEBUG_USAGE=1` ecrit les reponses brutes de l'API dans /tmp/offscript_usage.log : c'est
+    ce qui permettra de confirmer les noms exacts des compteurs de cache sur un vrai appel.
+    Verifie hors ligne : les prompts avant/apres ont ete compares ligne a ligne (aucune information
+    perdue, seul l'ordre change) et les prefixes communs mesures sur Projet Echo.
+
+- Documenter les cles vides du modele d'histoire (`ressources/story_template.json`)
+    `relationships`, `timeline`, `clues`, `memory_config` et `runtime_template` etaient des tableaux
+    vides sans explication : impossible de deviner quoi y mettre, ni lesquelles servent vraiment.
+    Chacune a maintenant son `_aide` et un exemple rempli qui charge tel quel, en disant la verite sur
+    ce que le moteur en fait : `timeline` ne part qu'a la generation de la resolution, `relationships`
+    est lu mais pas encore envoye au modele, `runtime_template` n'est pas lu du tout (c'est la forme de
+    la sauvegarde), `memory_config: null` = les cinq valeurs par defaut, documentees une par une avec
+    leur effet sur la consommation.
+    `_aide_clues` explique la mecanique reelle : un personnage ne peut sortir une piece que s'il connait
+    l'un des faits qu'elle etablit, il ne la mentionne jamais de lui-meme, et la produire credite tous
+    ses faits d'un coup. Avec la regle des deux sources en tete de fichier.
+    Le modele se conforme desormais a ce qu'il enseigne : ses deux personnages connaissent les deux
+    faits, donc aucun fait n'est verrouille quel que soit le coupable (verifie avec le meme controle que
+    Projet Echo). Au passage, le secret de personnage_a figure enfin dans ses `known_fact_ids`, comme
+    le moteur l'attend.
+
+- L'enquete semblait insoluble : malgre les questions, les npcs ne donnaient quasiment aucune information
+  utile, les pistes de l'un etaient contredites par un autre, et rien ne permettait de conclure
     DIAGNOSTIC (mesure sur save_echo_for_debug.json : 125 echanges, 1 fait etabli sur 17)
     Le joueur avait raison : cette partie etait litteralement insoluble.
     1. Les indices etaient du contenu mort. `memory_player_discover_clue()` n'etait appele de nulle part.
@@ -30,26 +176,59 @@ On dirait que l'enquete n'avance pas, malgré les questions les npcs ne sont pas
       tu sais, tu le dis », et interdiction de renvoyer indefiniment vers un document a consulter.
     - `story_fact_obtainable_without()` permet de savoir si un fait est atteignable autrement que par la
       bouche du coupable — de quoi garantir la solubilite lors du tirage des elements a charge.
+    Les deux points laisses en suspens ont ete traites le 11/08/2026, voir les deux entrees suivantes.
 
-    RESTE A FAIRE (non verifie en jeu, cf. rapport)
-    - Verifier en partie reelle qu'une piece est bien produite puis creditee.
-    - Le tirage des elements a charge ne privilegie pas encore les faits atteignables sans le coupable.
+- Projet Echo n'etait pas soluble : chaque fait n'avait qu'une source, et c'etait souvent le coupable
+    Le moteur avait ete corrige, pas l'histoire. Mesure d'origine : 3 faits (`fact_murder_window`,
+    `fact_cameras_off`, `fact_echo_move`) n'etaient connus de PERSONNE et reveles par aucun indice ;
+    13 faits sur 17 n'avaient qu'un seul detenteur ; et chaque indice n'etait produisible que par la
+    seule personne qui connaissait deja ce qu'il revele. Resultat, quel que soit le coupable tire, ses
+    propres faits n'etaient accessibles que par sa bouche.
+    L'intrigue est inchangee (meme victime, meme fenetre, memes mobiles, memes secrets, aucun coupable
+    predefini). Ce qui change, c'est qui SAIT quoi :
+    - Recoupements plausibles : Anton a la copie serveur du mail de Marc a Lea et voit les logs du
+      terminal de Karim ; Karim a la telemetrie (coupure des cameras, canal moteur active, deplacement
+      d'Echo, fenetre de la mort) ; Lea, co-fondatrice, connait le brevet et la mise en pause voulue par
+      Marc, et a recu le releve telephonique d'Anton ; Naomi, qui evalue Echo, a vu son message de peur ;
+      Echo a entendu la dispute de 22:30 qui le concernait.
+    - Trois indices ajoutes, dont deux que l'histoire citait deja dans ses `reveal_conditions` sans
+      qu'ils existent : `fouille_stockage_prive` (les cerveaux v1-6 de Karim), `enregistrement_audio`
+      (la dispute de 22:30) et `rapport_autopsie` (mort + fenetre horaire). `analyse_terminal_karim`
+      revele aussi l'heure de la coupure, `analyse_code` le deplacement commande a Echo.
+    - Chaque secret reste un secret : il est juste atteignable autrement, par un indice que quelqu'un
+      d'autre peut sortir. C'est ce que le moteur exige pour que l'aveu soit atteignable.
+    Verifie par `tests/test_clue.c` (19 verifications) : aucun fait orphelin, aucune contradiction
+    known/unknown, et pour CHACUN des 5 suspects pris comme coupable, tous ses faits ont une autre
+    source. Avant : 3 suspects sur 5 n'en avaient aucune.
 
-# To do
+- Verifier qu'une piece a conviction est bien produite puis creditee
+    Verifie hors ligne sur Projet Echo (`tests/test_clue.c`) : la passe d'analyse retient
+    `produced_clue_id` quand l'identifiant existe et l'ignore quand il est invente ; l'indice est marque
+    decouvert une seule fois ; tous les faits que revele `analyse_code` sont accordes au joueur et vus
+    par le carnet. Le test rejoue a la main ce que fait npc.c:900 (une boucle sur les faits de
+    l'indice) ; ces quelques lignes de liaison, elles, ne sont pas couvertes.
+    Toujours pas vu en partie reelle, et ce n'est pas un defaut du moteur : `discovered_clue_ids` est
+    vide dans les 5 sauvegardes existantes parce que les histoires jouees n'avaient AUCUN indice ecrit
+    (voir « Rendre les 7 autres histoires solubles » dans To do).
 
-- Ajouter un parametre au lancement de l'histoire pour choisir la difficulté
-- Il est très difficile d'obtenir des informations
-- Il faudrait peut etre ajouter des appels a l'IA sans que ce soit un npc, un peu comme un narateur, ou un mecanisme du jeu qui orchestre le tout 
-
-# Plus tard
-
-- Un inventaire
-- Ajouter des objets
-- Des objets interactifs (ex: pc, digicode, ..)
-- Avoir des portes ouvrables par certains NPC ou avec clé / code / a distance
-- Voir si on peut réduire les tokens 
-
-# Done
+- Le tirage des elements a charge ignorait l'atteignabilite des faits
+    `generate_solution()` (menu.c) ne garde desormais que les elements a charge atteignables sans le
+    coupable : un autre personnage les connait, ou une piece a conviction les etablit. Le seuil de
+    victoire etant `(n+1)/2` borne a n, reduire la liste ne rend rien inatteignable.
+    Contrepartie a surveiller : quand la liste est raccourcie, le seuil baisse avec elle (avec un seul
+    element atteignable, l'aveu peut tomber sur UN fait au lieu de 2). Sur Projet Echo ce cas a disparu
+    depuis que l'histoire est doublement sourcee, mais il reviendra sur les histoires encore
+    mono-source : c'est le prix de la solubilite, et il vaut mieux le payer la qu'ici — remonter le
+    seuil reverrouillerait l'enquete.
+    Si AUCUN n'est atteignable, la liste d'origine est conservee et le briefing l'annonce
+    (« Attention : aucune preuve n'est accessible sans l'aveu ») : mieux vaut le dire que livrer une
+    enquete qu'on ne peut pas gagner sans le savoir.
+    `story_fact_obtainable_without()` servait enfin, mais elle etait fausse sur deux points, corriges :
+    elle comptait les personnages absents de la carte (`placed`) et les indices non decouvrables, et
+    elle ignorait qu'un indice n'est produit que par quelqu'un qui connait l'un de ses faits — une piece
+    que seul le coupable detient n'est donc plus un chemin de secours.
+    Le prompt de resolution demande aussi au modele de privilegier ces faits, pour qu'il y ait moins a
+    ecarter. Verifie par `tests/test_clue.c` sur les 5 suspects de Projet Echo.
 
 - Pouvoir demander des indices (depuis le menu de pause)
     Entree « Demander une piste » dans le menu [Echap]. La piste est calculee a partir de l'etat reel

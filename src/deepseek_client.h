@@ -61,6 +61,15 @@ typedef struct {
 	long prompt_tokens;
 	long completion_tokens;
 	long calls;
+
+	/* Part de l'entree servie par le cache de prefixe du fournisseur, quand il
+	 * la rapporte (`prompt_cache_hit_tokens`). C'est la seule facon de savoir si
+	 * l'ordre du prompt — partie stable d'abord, volatile ensuite — porte ses
+	 * fruits : un jeton mis en cache coute une fraction du prix d'entree.
+	 * Compte de la session en cours seulement : la sauvegarde ne le conserve
+	 * pas, sinon le taux affiche melangerait des parties entieres. */
+	long cache_hit_tokens;
+	long cache_miss_tokens;
 } DeepseekUsage;
 
 void deepseek_usage_get(DeepseekUsage *out);

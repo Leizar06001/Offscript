@@ -163,7 +163,8 @@
         "known_fact_ids": [
           "fact_marc_dead",
           "fact_echo_logs_corrupted",
-          "fact_echo_fear_message"
+          "fact_echo_fear_message",
+          "fact_naomi_argument"
         ],
         "unknown_fact_ids": [
           "fact_lea_defense_contract",
@@ -227,7 +228,10 @@
         "known_fact_ids": [
           "fact_lea_defense_contract",
           "fact_marc_threatened_lea",
-          "fact_marc_dead"
+          "fact_marc_dead",
+          "fact_karim_patent",
+          "fact_marc_wanted_pause",
+          "fact_anton_phone"
         ],
         "unknown_fact_ids": [
           "fact_karim_old_brains",
@@ -290,7 +294,11 @@
         "known_fact_ids": [
           "fact_karim_patent",
           "fact_karim_old_brains",
-          "fact_camera_command_karim"
+          "fact_camera_command_karim",
+          "fact_cameras_off",
+          "fact_murder_window",
+          "fact_backdoor_activated",
+          "fact_echo_move"
         ],
         "unknown_fact_ids": [
           "fact_marc_threatened_lea"
@@ -359,7 +367,9 @@
         "known_fact_ids": [
           "fact_naomi_suffering",
           "fact_marc_wanted_pause",
-          "fact_naomi_argument"
+          "fact_naomi_argument",
+          "fact_echo_fear_message",
+          "fact_lea_defense_contract"
         ],
         "unknown_fact_ids": [
           "fact_backdoor_echo",
@@ -421,11 +431,14 @@
         "known_fact_ids": [
           "fact_backdoor_echo",
           "fact_backdoor_activated",
-          "fact_anton_phone"
+          "fact_anton_phone",
+          "fact_marc_threatened_lea",
+          "fact_echo_logs_corrupted",
+          "fact_camera_command_karim",
+          "fact_karim_old_brains"
         ],
         "unknown_fact_ids": [
-          "fact_naomi_suffering",
-          "fact_marc_threatened_lea"
+          "fact_naomi_suffering"
         ]
       },
       "dialogue": {
@@ -552,9 +565,10 @@
     {
       "id": "analyse_terminal_karim",
       "name": "Logs du terminal de Karim",
-      "description": "Montre qu'une commande liée aux caméras est partie de son terminal.",
+      "description": "Montre qu'une commande liée aux caméras est partie de son terminal, et l'heure exacte de la coupure.",
       "reveals_fact_ids": [
-        "fact_camera_command_karim"
+        "fact_camera_command_karim",
+        "fact_cameras_off"
       ],
       "discoverable": true
     },
@@ -571,10 +585,39 @@
     {
       "id": "analyse_code",
       "name": "Analyse de l'architecture réseau",
-      "description": "Révèle la backdoor de contrôle moteur créée par Anton.",
+      "description": "Révèle la backdoor de contrôle moteur créée par Anton, et le déplacement qu'elle a commandé.",
       "reveals_fact_ids": [
         "fact_backdoor_echo",
-        "fact_backdoor_activated"
+        "fact_backdoor_activated",
+        "fact_echo_move"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "fouille_stockage_prive",
+      "name": "Stockage privé de Karim",
+      "description": "Copies personnelles des versions 1 à 6 des cerveaux d'Écho, sur un volume qu'il n'a jamais déclaré.",
+      "reveals_fact_ids": [
+        "fact_karim_old_brains"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "enregistrement_audio",
+      "name": "Enregistrement de la salle de réunion",
+      "description": "Capte la dispute de 22:30 entre Naomi et Marc au sujet de l'arrêt d'Écho.",
+      "reveals_fact_ids": [
+        "fact_naomi_argument"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "rapport_autopsie",
+      "name": "Rapport d'autopsie",
+      "description": "Traumatisme crânien, et une heure de la mort qui tombe exactement dans les douze minutes sans caméras.",
+      "reveals_fact_ids": [
+        "fact_marc_dead",
+        "fact_murder_window"
       ],
       "discoverable": true
     }
