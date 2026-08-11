@@ -1,0 +1,282 @@
+{
+  "_lisez_moi": [
+    "Modele d'enquete. Copiez ce fichier dans ressources/<votre_histoire>/<votre_histoire>_story.json.",
+    "Les cles commencant par _ sont des commentaires : le jeu les ignore, vous pouvez les supprimer.",
+    "ATTENTION : n'en mettez JAMAIS dans \"facts\", dont chaque cle est lue comme un identifiant de fait.",
+    "",
+    "Principe : ce fichier est la verite de l'auteur. Un personnage ne recoit QUE les faits",
+    "que vous lui donnez dans knowledge.known_fact_ids. Tout ce qui evolue en jeu (memoire,",
+    "relations, secrets laches, positions) vit dans la sauvegarde, jamais ici.",
+    "",
+    "Pour que l'enquete soit soluble : chaque fait a charge doit pouvoir etre obtenu de",
+    "quelqu'un. Si un fait n'est dans le known_fact_ids de personne et dans aucun indice,",
+    "le joueur ne pourra jamais l'etablir, et le coupable n'avouera donc jamais."
+  ],
+  "schema_version": "1.0",
+  "story": {
+    "_aide": [
+      "id : doit etre unique, sans espace. title/premise : ce que le joueur lit au briefing.",
+      "player_title : comment on s'adresse au joueur. Il saisit son nom, et devient",
+      "  'Detective Poireau', 'Commissaire Poireau'...",
+      "central_questions : affichees comme objectifs dans le carnet."
+    ],
+    "id": "mon_histoire",
+    "title": "Titre de l'histoire",
+    "genre": [
+      "enquête"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 2025,
+      "location": "Lieu de l'affaire",
+      "organization": "Organisation"
+    },
+    "premise": "REMPLACEZ CECI : une ou deux phrases qui posent l'affaire, lues au briefing.",
+    "player_title": "Detective",
+    "central_questions": [
+      "Qui a fait le coup ?"
+    ]
+  },
+  "ai_directives": {
+    "_aide": [
+      "global : regles envoyees a TOUS les personnages. Gardez-les courtes et imperatives.",
+      "default_dialogue.max_words : longueur maximale d'une replique. 60-90 pour rester vif."
+    ],
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Rester dans le rôle du personnage."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "_aide_facts": [
+    "facts : le coeur du fichier. Chaque cle est un identifiant, reutilise partout ailleurs.",
+    "  text  : la phrase telle qu'elle apparaitra dans le carnet du joueur.",
+    "  truth : false pour une fausse piste que des personnages croient vraie.",
+    "  category : libre (evidence, temoignage, mobile...), sert seulement a vous relire.",
+    "N'ECRIVEZ PAS de cle _aide a l'interieur de \"facts\" : elle serait lue comme un fait."
+  ],
+  "facts": {
+    "fait_exemple": {
+      "text": "REMPLACEZ CECI : un fait etabli, tel qu'il apparaitra dans le carnet.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "fait_a_charge": {
+      "text": "REMPLACEZ CECI : un element qui accuse quelqu'un.",
+      "truth": true,
+      "category": "evidence"
+    }
+  },
+  "characters": [
+    {
+      "_aide": [
+        "Un objet par personnage. id unique, reutilise dans mystery.suspect_ids et dans les indices.",
+        "position_in_case : sa place dans l'affaire, envoyee au modele.",
+        "alibi : mettez null s'il n'en a pas. weakness n'est jamais dit spontanement.",
+        "secrets : ce qu'il cache. can_hide=true -> il nie tant qu'on ne lui oppose pas de preuve.",
+        "knowledge.known_fact_ids : LA cle du jeu. Il ne peut reveler que ces faits.",
+        "  unknown_fact_ids n'est jamais envoye au modele : le nommer lui apprendrait qu'il existe.",
+        "dialogue.tone et speech_rules : sa voix. C'est ce qui le distingue le plus des autres.",
+        "game : ou il se tient. room = identifiant d'une piece de map.rooms (le moteur lui trouve",
+        "  une place libre). x/y restent acceptes si vous voulez un endroit precis.",
+        "  can_move : il se deplace dans sa piece. can_change_room : il peut en sortir.",
+        "  fixed_face : son visage ne suit pas ses emotions (un androide n'a qu'un emoji credible)."
+      ],
+      "id": "personnage_a",
+      "name": "Personnage A",
+      "role": "Son role",
+      "identity": {
+        "age": 40,
+        "type": "human"
+      },
+      "personality": [
+        "nerveux",
+        "sur la defensive"
+      ],
+      "public_description": "Ce que le joueur voit de lui au briefing.",
+      "position_in_case": "Ce qu'il faisait au moment des faits.",
+      "motives": [
+        "Un mobile possible"
+      ],
+      "alibi": {
+        "claim": "Ce qu'il affirme avoir fait",
+        "strength": "Ce qui le rend credible",
+        "weakness": "La faille, qu'il ne mentionne jamais de lui-meme"
+      },
+      "secrets": [
+        {
+          "id": "secret_a",
+          "fact_id": "fait_a_charge",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fait_exemple"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "sec, evasif",
+        "speech_rules": [
+          "Repond par des phrases courtes.",
+          "Ne se livre jamais spontanement."
+        ]
+      },
+      "game": {
+        "room": "piece_a",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "personnage_b",
+      "name": "Personnage B",
+      "role": "Son role",
+      "identity": {
+        "age": 40,
+        "type": "human"
+      },
+      "personality": [
+        "calme",
+        "precis"
+      ],
+      "public_description": "Ce que le joueur voit de lui au briefing.",
+      "position_in_case": "Ce qu'il faisait au moment des faits.",
+      "motives": [
+        "Un mobile possible"
+      ],
+      "alibi": {
+        "claim": "Ce qu'il affirme avoir fait",
+        "strength": "Ce qui le rend credible",
+        "weakness": "La faille, qu'il ne mentionne jamais de lui-meme"
+      },
+      "secrets": [],
+      "knowledge": {
+        "known_fact_ids": [
+          "fait_a_charge"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "posee, polie",
+        "speech_rules": [
+          "Repond par des phrases courtes.",
+          "Ne se livre jamais spontanement."
+        ]
+      },
+      "game": {
+        "room": "piece_b",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "can_move": true,
+        "can_change_room": true
+      }
+    }
+  ],
+  "relationships": [],
+  "timeline": [],
+  "clues": [],
+  "map": {
+    "_aide": [
+      "rows : le plan, une chaine par ligne. '2' = mur,",
+      "  'v' = porte verticale, 'h' = porte horizontale, espace = sol.",
+      "  Toutes les lignes doivent faire la meme longueur que width.",
+      "player_start : ou le joueur entre. Doit etre une case de sol.",
+      "rooms : une piece = un identifiant, un nom affiche, et UN POINT a l'interieur ('at').",
+      "  Le moteur remplit la zone depuis ce point : une piece en L se decrit comme un rectangle.",
+      "  Les portes sont trouvees toutes seules et reliees aux deux pieces qu'elles separent.",
+      "IMPORTANT : le joueur avance de deux colonnes a la fois. Une piece large d'une seule",
+      "  colonne utile serait donc inatteignable."
+    ],
+    "width": 24,
+    "rows": [
+      "222222222222222222222222",
+      "2        2             2",
+      "2        2             2",
+      "2        v             2",
+      "2        2             2",
+      "2        2             2",
+      "222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 3,
+      "y": 3
+    },
+    "rooms": [
+      {
+        "id": "piece_a",
+        "name": "Nom de la piece A",
+        "at": {
+          "x": 3,
+          "y": 2
+        }
+      },
+      {
+        "id": "piece_b",
+        "name": "Nom de la piece B",
+        "at": {
+          "x": 15,
+          "y": 2
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_aide": [
+      "suspect_ids : parmi eux sera tire le coupable si solution.culprit_id vaut null.",
+      "Laissez culprit_id a null : le moteur tire un coupable a chaque nouvelle partie et fait",
+      "  generer une resolution coherente avec vos faits. L'enquete est donc rejouable.",
+      "Fixez culprit_id si vous voulez toujours le meme coupable."
+    ],
+    "victim": {
+      "id": "la_victime",
+      "name": "Nom de la victime",
+      "age": 50,
+      "role": "Son role"
+    },
+    "crime": {
+      "type": "homicide",
+      "location": "Nom de la piece",
+      "time_window": {
+        "start": "22:00",
+        "end": "22:30"
+      },
+      "cause": "Cause de la mort"
+    },
+    "suspect_ids": [
+      "personnage_a",
+      "personnage_b"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null
+}

@@ -1,0 +1,821 @@
+{
+  "_lisez_moi": [
+    "Modele d'enquete. Copiez ce fichier dans ressources/<votre_histoire>/<votre_histoire>_story.json.",
+    "Les cles commencant par _ sont des commentaires : le jeu les ignore, vous pouvez les supprimer.",
+    "ATTENTION : n'en mettez JAMAIS dans \"facts\", dont chaque cle est lue comme un identifiant de fait.",
+    "",
+    "Principe : ce fichier est la verite de l'auteur. Un personnage ne recoit QUE les faits",
+    "que vous lui donnez dans knowledge.known_fact_ids. Tout ce qui evolue en jeu (memoire,",
+    "relations, secrets laches, positions) vit dans la sauvegarde, jamais ici.",
+    "",
+    "Pour que l'enquete soit soluble : chaque fait a charge doit pouvoir etre obtenu de",
+    "quelqu'un. Si un fait n'est dans le known_fact_ids de personne et dans aucun indice,",
+    "le joueur ne pourra jamais l'etablir, et le coupable n'avouera donc jamais."
+  ],
+  "schema_version": "1.0",
+  "story": {
+    "_aide": [
+      "id : doit etre unique, sans espace. title/premise : ce que le joueur lit au briefing.",
+      "player_title : comment on s'adresse au joueur. Il saisit son nom, et devient",
+      "  'Detective Poireau', 'Commissaire Poireau'...",
+      "central_questions : affichees comme objectifs dans le carnet."
+    ],
+    "id": "le_banquet_des_cendres",
+    "title": "Le Banquet des Cendres",
+    "genre": [
+      "enquête",
+      "fantasy médiévale",
+      "huis clos",
+      "intrigue politique"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 842,
+      "location": "Château de Valdoren",
+      "organization": "Couronne de Valdoren"
+    },
+    "premise": "Après vingt ans de guerre, Valdoren reçoit une délégation de Seryth pour signer la paix. Au milieu du banquet, l'ambassadeur Cassian Veyr s'effondre, empoisonné. Le château est scellé : le meurtrier est encore à l'intérieur.",
+    "player_title": "Enquêteur royal",
+    "central_questions": [
+      "Qui a assassiné Cassian Veyr ?",
+      "Comment le poison a-t-il été administré ?",
+      "Quel secret du traité a déclenché le meurtre ?"
+    ]
+  },
+  "ai_directives": {
+    "_aide": [
+      "global : regles envoyees a TOUS les personnages. Gardez-les courtes et imperatives.",
+      "default_dialogue.max_words : longueur maximale d'une replique. 60-90 pour rester vif."
+    ],
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Ne jamais désigner spontanément un coupable : le coupable est choisi par le moteur lors de la partie.",
+      "Un mobile, un mensonge, un secret ou une opportunité ne constitue jamais à lui seul une preuve de culpabilité.",
+      "Rester dans le rôle du personnage."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "_aide_facts": [
+    "facts : le coeur du fichier. Chaque cle est un identifiant, reutilise partout ailleurs.",
+    "  text  : la phrase telle qu'elle apparaitra dans le carnet du joueur.",
+    "  truth : false pour une fausse piste que des personnages croient vraie.",
+    "  category : libre (evidence, temoignage, mobile...), sert seulement a vous relire.",
+    "N'ECRIVEZ PAS de cle _aide a l'interieur de \"facts\" : elle serait lue comme un fait."
+  ],
+  "facts": {
+    "cause_poison": {
+      "text": "Cassian Veyr est mort d'un empoisonnement à la Cendre noire, un toxique végétal rare.",
+      "truth": true,
+      "category": "cause"
+    },
+    "window_effect": {
+      "text": "La Cendre noire agit généralement entre cinq et quinze minutes après ingestion.",
+      "truth": true,
+      "category": "forensic"
+    },
+    "death_time": {
+      "text": "Cassian s'est effondré vers 21 h 18, après avoir commencé le toast de paix.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "multiple_intakes": {
+      "text": "Dans les quinze minutes précédant sa mort, Cassian a bu du vin épicé et goûté deux plats différents.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "goblet_unwatched": {
+      "text": "La coupe de Cassian est restée sans surveillance pendant plusieurs minutes lorsque les convives se sont levés pour saluer la princesse.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "shared_ewer": {
+      "text": "Le vin servi à Cassian provenait d'une aiguière utilisée pour plusieurs convives, dont aucun autre n'a été empoisonné.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "spices_mask": {
+      "text": "Les épices du vin royal peuvent masquer l'amertume légère de la Cendre noire.",
+      "truth": true,
+      "category": "forensic"
+    },
+    "missing_vial": {
+      "text": "Une petite dose de Cendre noire manque dans l'armoire du laboratoire royal.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "cabinet_access": {
+      "text": "L'armoire aux toxiques peut être ouverte avec la clé de Maelis, la clé de réserve de l'intendant ou par crochetage.",
+      "truth": true,
+      "category": "access"
+    },
+    "lab_unattended": {
+      "text": "Le laboratoire est resté vide pendant une dizaine de minutes avant le banquet.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "service_corridor": {
+      "text": "Un couloir de service relie les cuisines, la grande salle et l'aile du laboratoire sans passer par l'entrée principale.",
+      "truth": true,
+      "category": "access"
+    },
+    "shift_change": {
+      "text": "Le changement d'équipe des serviteurs vers 21 h a créé plusieurs minutes de circulation mal surveillée.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "missing_page": {
+      "text": "Une page a été arrachée au dossier diplomatique de Cassian après son arrivée au château.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "victim_announcement": {
+      "text": "Cassian avait annoncé à plusieurs personnes qu'il ferait une révélation importante après le dessert.",
+      "truth": true,
+      "category": "motive"
+    },
+    "victim_many_enemies": {
+      "text": "Cassian avait accumulé des ennemis à Valdoren pendant la guerre et durant les négociations.",
+      "truth": true,
+      "category": "context"
+    },
+    "maelis_argument": {
+      "text": "Maelis Ardan s'est disputée avec Cassian au sujet de recherches alchimiques interdites qu'il menaçait de révéler.",
+      "truth": true,
+      "category": "motive"
+    },
+    "maelis_absence": {
+      "text": "Maelis a quitté son laboratoire avant le banquet et personne ne peut confirmer précisément où elle se trouvait entre 21 h 02 et 21 h 11.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "maelis_secret_trials": {
+      "text": "Maelis mène clandestinement des expériences de médecine de guerre interdites par le Conseil.",
+      "truth": true,
+      "category": "secret"
+    },
+    "edric_threat": {
+      "text": "Sir Edric Vael a menacé Cassian en public trois jours avant le banquet, en évoquant la mort de son frère pendant la guerre.",
+      "truth": true,
+      "category": "motive"
+    },
+    "edric_absence": {
+      "text": "Edric a quitté la grande salle quelques minutes autour de 21 h 10 en disant vouloir prendre l'air.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "edric_romance": {
+      "text": "Edric entretient secrètement une relation avec Alena Soryn, une aide de la délégation de Seryth.",
+      "truth": true,
+      "category": "secret"
+    },
+    "elayne_marriage": {
+      "text": "Le traité prévoit le mariage politique de la princesse Elayne avec un prince de Seryth, union qu'elle refuse en privé.",
+      "truth": true,
+      "category": "motive"
+    },
+    "elayne_absence": {
+      "text": "Elayne a quitté la grande salle avant le toast et n'a été revue qu'environ neuf minutes plus tard.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "elayne_escape": {
+      "text": "Elayne préparait une fuite du château pour échapper au mariage prévu par le traité.",
+      "truth": true,
+      "category": "secret"
+    },
+    "oren_son": {
+      "text": "Le fils d'Oren Tal a été exécuté sur ordre de Cassian pendant la guerre.",
+      "truth": true,
+      "category": "motive"
+    },
+    "oren_access": {
+      "text": "Oren dirige les cuisines et peut atteindre la grande salle par le couloir de service sans être remarqué par les invités.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "oren_refugees": {
+      "text": "Oren détourne discrètement des réserves du château pour nourrir des réfugiés de guerre.",
+      "truth": true,
+      "category": "secret"
+    },
+    "caelum_opposition": {
+      "text": "Frère Caelum considère le traité comme une trahison envers les morts de Valdoren.",
+      "truth": true,
+      "category": "motive"
+    },
+    "caelum_wine_contact": {
+      "text": "Caelum a participé à la bénédiction de la table et a approché les coupes et les aiguières avant le service.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "caelum_circle": {
+      "text": "Caelum rencontre secrètement des nobles opposés au traité dans la chapelle.",
+      "truth": true,
+      "category": "secret"
+    },
+    "lysander_network": {
+      "text": "Cassian avait découvert que Lysander Rook entretenait un réseau clandestin d'informateurs à Seryth.",
+      "truth": true,
+      "category": "motive"
+    },
+    "lysander_service_plan": {
+      "text": "Lysander a supervisé le plan de table, l'ordre des toasts et une partie du protocole de service.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "lysander_payments": {
+      "text": "Lysander verse secrètement de l'argent à plusieurs messagers étrangers afin d'obtenir des renseignements politiques.",
+      "truth": true,
+      "category": "secret"
+    },
+    "false_only_maelis_key": {
+      "text": "Oren est convaincu que Maelis est la seule personne capable d'ouvrir l'armoire aux toxiques.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "false_instant_poison": {
+      "text": "Edric croit que la Cendre noire tue presque instantanément après ingestion.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "false_black_powder": {
+      "text": "Elayne croit avoir vu une poudre sombre au fond de la coupe de Cassian juste avant le toast.",
+      "truth": false,
+      "category": "memory"
+    }
+  },
+  "characters": [
+    {
+      "id": "maelis_ardan",
+      "name": "Maelis Ardan",
+      "role": "Alchimiste royale",
+      "identity": {
+        "age": 44,
+        "type": "human"
+      },
+      "personality": [
+        "froide",
+        "méthodique",
+        "orgueilleuse"
+      ],
+      "public_description": "Alchimiste officielle de la cour, Maelis parle comme si chaque émotion était une erreur de calcul.",
+      "position_in_case": "Elle avait travaillé au laboratoire avant le banquet puis a rejoint tardivement la grande salle.",
+      "motives": [
+        "Cassian menaçait de révéler ses recherches interdites.",
+        "Elle risque de perdre son titre et sa liberté si ses expériences sont découvertes."
+      ],
+      "alibi": {
+        "claim": "Elle affirme avoir quitté le laboratoire pour consulter un registre dans l'aile des archives.",
+        "strength": "Plusieurs personnes l'ont vue quitter le laboratoire avant le toast.",
+        "weakness": "Personne ne peut confirmer précisément ses déplacements pendant plusieurs minutes."
+      },
+      "secrets": [
+        {
+          "id": "secret_maelis_trials",
+          "fact_id": "maelis_secret_trials",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "cause_poison",
+          "window_effect",
+          "spices_mask",
+          "missing_vial",
+          "cabinet_access",
+          "lab_unattended",
+          "maelis_argument",
+          "maelis_absence",
+          "maelis_secret_trials"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "précis, cassant, analytique",
+        "speech_rules": [
+          "Répond avec un vocabulaire technique.",
+          "Corrige immédiatement les erreurs sur les poisons.",
+          "Cache ses expériences interdites tant qu'elle n'est pas confrontée à ce sujet."
+        ]
+      },
+      "game": {
+        "room": "laboratoire",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "edric_vael",
+      "name": "Sir Edric Vael",
+      "role": "Chevalier de Valdoren",
+      "identity": {
+        "age": 37,
+        "type": "human"
+      },
+      "personality": [
+        "fier",
+        "impulsif",
+        "loyal"
+      ],
+      "public_description": "Vétéran décoré de la guerre contre Seryth, Edric ne cache pas son mépris pour Cassian.",
+      "position_in_case": "Il était à la table d'honneur, puis a quitté brièvement la salle autour du moment critique.",
+      "motives": [
+        "Cassian commandait les forces responsables de la mort de son frère.",
+        "Il considère la paix comme une humiliation personnelle."
+      ],
+      "alibi": {
+        "claim": "Il dit être sorti dans la cour intérieure pour calmer sa colère.",
+        "strength": "Un garde se souvient l'avoir aperçu près de la porte de la cour.",
+        "weakness": "Le garde ne l'a pas observé pendant toute son absence."
+      },
+      "secrets": [
+        {
+          "id": "secret_edric_romance",
+          "fact_id": "edric_romance",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "death_time",
+          "goblet_unwatched",
+          "edric_threat",
+          "edric_absence",
+          "edric_romance",
+          "false_instant_poison",
+          "victim_many_enemies"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "direct, martial, facilement irrité",
+        "speech_rules": [
+          "Parle sans détour.",
+          "Se braque si l'on évoque son frère.",
+          "Nie sa relation avec Alena tant qu'il n'est pas confronté à une preuve."
+        ]
+      },
+      "game": {
+        "room": "grande_salle",
+        "face": 1,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "elayne",
+      "name": "Princesse Elayne",
+      "role": "Héritière de Valdoren",
+      "identity": {
+        "age": 26,
+        "type": "human"
+      },
+      "personality": [
+        "intelligente",
+        "contenue",
+        "déterminée"
+      ],
+      "public_description": "Héritière du royaume et pièce maîtresse du traité, Elayne paraît parfaitement maîtresse d'elle-même.",
+      "position_in_case": "Elle a quitté la grande salle peu avant le toast, officiellement pour se rendre à la chapelle.",
+      "motives": [
+        "Le traité l'oblige à un mariage qu'elle refuse.",
+        "La mort de Cassian peut retarder ou faire échouer l'alliance."
+      ],
+      "alibi": {
+        "claim": "Elle affirme avoir prié seule dans la chapelle.",
+        "strength": "Un serviteur l'a vue prendre la direction de la chapelle.",
+        "weakness": "Personne ne peut confirmer qu'elle y est restée tout le temps."
+      },
+      "secrets": [
+        {
+          "id": "secret_elayne_escape",
+          "fact_id": "elayne_escape",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "multiple_intakes",
+          "victim_announcement",
+          "elayne_marriage",
+          "elayne_absence",
+          "elayne_escape",
+          "false_black_powder",
+          "missing_page"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "calme, noble, soigneusement mesuré",
+        "speech_rules": [
+          "Évite les confidences personnelles.",
+          "Ne révèle son projet de fuite que sous forte pression.",
+          "Ne prétend jamais avoir vu plus que ce dont elle se souvient."
+        ]
+      },
+      "game": {
+        "room": "chapelle",
+        "face": 0,
+        "body": 1,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "oren_tal",
+      "name": "Oren Tal",
+      "role": "Maître des cuisines",
+      "identity": {
+        "age": 52,
+        "type": "human"
+      },
+      "personality": [
+        "bourru",
+        "protecteur",
+        "observateur"
+      ],
+      "public_description": "Chef des cuisines depuis trente ans, Oren connaît chaque couloir de service du château.",
+      "position_in_case": "Il supervisait le repas et faisait des allers-retours entre les cuisines et la grande salle.",
+      "motives": [
+        "Cassian a fait exécuter son fils pendant la guerre.",
+        "Il tient Cassian pour responsable de la ruine de nombreuses familles."
+      ],
+      "alibi": {
+        "claim": "Il affirme être resté dans les cuisines pendant la préparation du dessert.",
+        "strength": "Plusieurs aides l'y ont vu à différents moments.",
+        "weakness": "Ses déplacements constants par le couloir de service rendent son emploi du temps impossible à vérifier minute par minute."
+      },
+      "secrets": [
+        {
+          "id": "secret_oren_refugees",
+          "fact_id": "oren_refugees",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "shared_ewer",
+          "service_corridor",
+          "shift_change",
+          "oren_son",
+          "oren_access",
+          "oren_refugees",
+          "false_only_maelis_key",
+          "spices_mask"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "bourru, concret, protecteur envers le personnel",
+        "speech_rules": [
+          "Parle en termes pratiques.",
+          "Défend ses aides avant de se défendre lui-même.",
+          "Cache le détournement de nourriture par peur de sanctions."
+        ]
+      },
+      "game": {
+        "room": "cuisines",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "frere_caelum",
+      "name": "Frère Caelum",
+      "role": "Prêtre de la cour",
+      "identity": {
+        "age": 61,
+        "type": "human"
+      },
+      "personality": [
+        "solennel",
+        "charismatique",
+        "intransigeant"
+      ],
+      "public_description": "Confesseur de plusieurs nobles, Caelum inspire autant le respect que la méfiance.",
+      "position_in_case": "Il a béni la table avant le repas puis a circulé entre la grande salle et la chapelle.",
+      "motives": [
+        "Il juge le traité moralement inacceptable.",
+        "Il craint que l'alliance efface les crimes commis pendant la guerre."
+      ],
+      "alibi": {
+        "claim": "Il dit avoir prié avec deux serviteurs après la bénédiction du repas.",
+        "strength": "Les serviteurs confirment l'avoir vu à la chapelle à un moment de la soirée.",
+        "weakness": "Ils ne sont pas certains de l'heure exacte ni de la durée de sa présence."
+      },
+      "secrets": [
+        {
+          "id": "secret_caelum_circle",
+          "fact_id": "caelum_circle",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "caelum_opposition",
+          "caelum_wine_contact",
+          "caelum_circle",
+          "window_effect",
+          "victim_many_enemies",
+          "shift_change"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "grave, moraliste, posé",
+        "speech_rules": [
+          "Répond souvent par des formulations morales.",
+          "Ne reconnaît pas facilement ses réunions politiques clandestines.",
+          "Reste calme même lorsqu'il est accusé."
+        ]
+      },
+      "game": {
+        "room": "chapelle",
+        "face": 0,
+        "body": 0,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "lysander_rook",
+      "name": "Lysander Rook",
+      "role": "Conseiller diplomatique",
+      "identity": {
+        "age": 41,
+        "type": "human"
+      },
+      "personality": [
+        "charmant",
+        "calculateur",
+        "adaptable"
+      ],
+      "public_description": "Architecte discret des négociations, Lysander semble toujours savoir ce que chacun veut entendre.",
+      "position_in_case": "Il circulait entre la grande salle et le cabinet diplomatique pour gérer le protocole du banquet.",
+      "motives": [
+        "Cassian avait découvert son réseau clandestin d'informateurs.",
+        "Une révélation publique pouvait détruire sa carrière et déclencher un scandale diplomatique."
+      ],
+      "alibi": {
+        "claim": "Il affirme avoir vérifié les documents du traité dans le cabinet diplomatique au moment du toast.",
+        "strength": "Des documents portent bien ses annotations de cette soirée.",
+        "weakness": "Les annotations ne permettent pas d'établir à quelle minute elles ont été écrites."
+      },
+      "secrets": [
+        {
+          "id": "secret_lysander_payments",
+          "fact_id": "lysander_payments",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "victim_announcement",
+          "missing_page",
+          "lysander_network",
+          "lysander_service_plan",
+          "lysander_payments",
+          "goblet_unwatched",
+          "cabinet_access"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "poli, souple, subtilement manipulateur",
+        "speech_rules": [
+          "Répond avec élégance et reformule les accusations.",
+          "Donne volontiers des informations sur les autres.",
+          "Minimise ses activités d'espionnage tant qu'elles ne sont pas prouvées."
+        ]
+      },
+      "game": {
+        "room": "cabinet_diplomatique",
+        "face": 1,
+        "body": 0,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": true
+      }
+    }
+  ],
+  "relationships": [],
+  "timeline": [],
+  "clues": [],
+  "map": {
+    "_aide": [
+      "rows : le plan, une chaine par ligne. '2' = mur, 'v' = porte verticale, 'h' = porte horizontale, espace = sol.",
+      "Cette carte n'utilise volontairement aucun mur '1' et aucune double epaisseur de murs.",
+      "Toutes les lignes doivent faire la meme longueur que width.",
+      "player_start : ou le joueur entre. Doit etre une case de sol.",
+      "rooms : une piece = un identifiant, un nom affiche, et UN POINT a l'interieur ('at').",
+      "Le moteur remplit la zone depuis ce point : les murs et portes separent les zones.",
+      "Les portes sont trouvees toutes seules et reliees aux deux pieces qu'elles separent.",
+      "IMPORTANT : le joueur avance de deux colonnes a la fois. Les circulations gardent plusieurs colonnes utiles."
+    ],
+    "width": 61,
+    "rows": [
+      "2222222222222222222222222222222222222222222222222222222222222",
+      "2              2    2                   2    2              2",
+      "2              2    v                   2    2              2",
+      "2              2    2                   2    2              2",
+      "2              v    2                   2    2              2",
+      "2              2    2                   2    v              2",
+      "2         222222    2                   2    2              2",
+      "2         2    2    2                   v    2              2",
+      "2         v    2    2                   2    2              2",
+      "22222222222    2    2                   2    2    22222222222",
+      "2              v    2                   2    2    v         2",
+      "2              2    2                   2    2    2         2",
+      "22222222222    2    222222         222222    222222         2",
+      "2         2    2         v         2         2              2",
+      "2         2    2         2         2         v              2",
+      "2         222222    2222222h2222222222222    2              2",
+      "2              v    2                   v    2              2",
+      "2              2    2                   2    2              2",
+      "2    22222222222    2                   2    2              2",
+      "2    2         2    2                   2    2              2",
+      "2    v         2    2                   2    2              2",
+      "222222         2    2                   2    22222222h2222222",
+      "2              v    2                   2    2              2",
+      "2              2    2                   2    v              2",
+      "2              2    222222222h22222222222    2              2",
+      "2              2    2              2         2              2",
+      "2              2    v              2         2              2",
+      "2         222222    2.             222222    2              2",
+      "2         2         2                   2    2              2",
+      "2         2         2                   2    2              2",
+      "2222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 27,
+      "y": 28
+    },
+    "rooms": [
+      {
+        "id": "cuisines",
+        "name": "Cuisines royales",
+        "at": {
+          "x": 2,
+          "y": 1
+        }
+      },
+      {
+        "id": "grande_salle",
+        "name": "Grande salle du banquet",
+        "at": {
+          "x": 22,
+          "y": 1
+        }
+      },
+      {
+        "id": "cabinet_diplomatique",
+        "name": "Cabinet diplomatique",
+        "at": {
+          "x": 47,
+          "y": 1
+        }
+      },
+      {
+        "id": "cellier_service",
+        "name": "Cellier et office",
+        "at": {
+          "x": 12,
+          "y": 7
+        }
+      },
+      {
+        "id": "galerie_centrale",
+        "name": "Galerie des Cendres",
+        "at": {
+          "x": 17,
+          "y": 1
+        }
+      },
+      {
+        "id": "cour_interieure",
+        "name": "Cour intérieure",
+        "at": {
+          "x": 22,
+          "y": 16
+        }
+      },
+      {
+        "id": "laboratoire",
+        "name": "Laboratoire de Maelis",
+        "at": {
+          "x": 52,
+          "y": 10
+        }
+      },
+      {
+        "id": "passage_service",
+        "name": "Passage des serviteurs",
+        "at": {
+          "x": 2,
+          "y": 13
+        }
+      },
+      {
+        "id": "chapelle",
+        "name": "Chapelle royale",
+        "at": {
+          "x": 7,
+          "y": 19
+        }
+      },
+      {
+        "id": "vestibule",
+        "name": "Vestibule principal",
+        "at": {
+          "x": 27,
+          "y": 25
+        }
+      },
+      {
+        "id": "corps_de_garde",
+        "name": "Corps de garde",
+        "at": {
+          "x": 47,
+          "y": 22
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_aide": [
+      "suspect_ids : parmi eux sera tire le coupable si solution.culprit_id vaut null.",
+      "Laissez culprit_id a null : le moteur tire un coupable a chaque nouvelle partie et fait",
+      "  generer une resolution coherente avec vos faits. L'enquete est donc rejouable.",
+      "Fixez culprit_id si vous voulez toujours le meme coupable."
+    ],
+    "victim": {
+      "id": "cassian_veyr",
+      "name": "Lord Cassian Veyr",
+      "age": 58,
+      "role": "Ambassadeur de Seryth"
+    },
+    "crime": {
+      "type": "homicide",
+      "location": "Grande salle du banquet",
+      "time_window": {
+        "start": "21:05",
+        "end": "21:18"
+      },
+      "cause": "Empoisonnement à la Cendre noire"
+    },
+    "suspect_ids": [
+      "maelis_ardan",
+      "edric_vael",
+      "elayne",
+      "oren_tal",
+      "frere_caelum",
+      "lysander_rook"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null
+}

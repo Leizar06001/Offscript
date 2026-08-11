@@ -1,0 +1,817 @@
+{
+  "schema_version": "1.0",
+  "story": {
+    "id": "la_fausse_princesse",
+    "title": "La Fausse Princesse",
+    "genre": [
+      "enquête",
+      "fantasy politique",
+      "disparition"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 913,
+      "location": "Palais d'Orvain",
+      "organization": "Couronne d'Orvain et délégation de Nereth"
+    },
+    "premise": "À quelques heures d'un mariage diplomatique, on découvre que la princesse Aléa a été remplacée par une doublure. La vraie princesse a disparu du palais, sans trace de lutte, alors qu'une menace de mort pesait sur elle.",
+    "player_title": "Enquêteur royal",
+    "central_questions": [
+      "Qui a organisé la substitution ?",
+      "Où se trouve la véritable Aléa ?",
+      "S'agit-il d'un enlèvement, d'une fuite organisée ou d'une opération destinée à lui sauver la vie ?"
+    ]
+  },
+  "ai_directives": {
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Rester dans le rôle du personnage.",
+      "Un secret can_hide=true n'est admis que si le joueur apporte un fait contradictoire ou une pression crédible.",
+      "Ne jamais supposer l'identité du responsable avant que la résolution de partie ne l'ait fixée."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "facts": {
+    "princesse_substituee": {
+      "text": "La jeune femme présentée au palais comme la princesse Aléa n'est pas Aléa de Nereth.",
+      "truth": true,
+      "category": "incident"
+    },
+    "alea_vivante_probable": {
+      "text": "Aucune trace de lutte ni de blessure n'a été trouvée dans la suite ; tout indique qu'Aléa a quitté les lieux vivante.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "dernier_temoin_alea": {
+      "text": "La véritable Aléa a été vue pour la dernière fois à 18 h 35 dans la galerie du cloître.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "double_arrivee_1905": {
+      "text": "La doublure a rejoint la délégation à 19 h 05, déjà vêtue pour la cérémonie.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "visage_voile": {
+      "text": "Le protocole de deuil nerethien autorisait la princesse à garder un voile durant l'arrivée officielle.",
+      "truth": true,
+      "category": "means"
+    },
+    "sceau_authentique": {
+      "text": "La doublure possédait le véritable sceau personnel d'Aléa.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "lettre_menace": {
+      "text": "Aléa avait reçu une lettre anonyme annonçant qu'elle mourrait si elle signait le pacte matrimonial.",
+      "truth": true,
+      "category": "risk"
+    },
+    "mariage_force": {
+      "text": "Le traité impose à Aléa d'épouser le prince Cael dans les trois jours.",
+      "truth": true,
+      "category": "motive"
+    },
+    "clause_secrete": {
+      "text": "Une clause secrète du traité donnerait à Nereth le contrôle militaire d'un col frontalier après le mariage.",
+      "truth": true,
+      "category": "motive"
+    },
+    "passage_tentures": {
+      "text": "Un ancien passage de service relie la suite de la princesse, la chapelle et le corps de garde.",
+      "truth": true,
+      "category": "map"
+    },
+    "cle_passage": {
+      "text": "La porte du passage des tentures s'ouvre avec une clé ancienne conservée normalement au corps de garde.",
+      "truth": true,
+      "category": "means"
+    },
+    "cle_absente": {
+      "text": "La clé du passage n'était plus sur son crochet lors du changement de garde de 19 h 15.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "costume_double": {
+      "text": "Une seconde tenue cérémonielle presque identique a été préparée dans l'office des cuisines, loin des appartements officiels.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "yselle_connait_double": {
+      "text": "Dame Yselle connaît depuis l'enfance une comédienne capable d'imiter l'accent de la cour de Nereth.",
+      "truth": true,
+      "category": "secret"
+    },
+    "rovan_ordre_faux": {
+      "text": "Le capitaine Rovan a reçu un ordre écrit lui demandant de retirer deux gardes de la galerie à 18 h 40.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "ordre_signature_douteuse": {
+      "text": "La signature de cet ordre imite celle du chancelier Mered mais comporte une forme inhabituelle.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "mered_clause": {
+      "text": "Mered a personnellement négocié la clause secrète du traité.",
+      "truth": true,
+      "category": "secret"
+    },
+    "cael_refus_prive": {
+      "text": "Le prince Cael a confié en privé qu'il ne souhaitait pas davantage ce mariage qu'Aléa.",
+      "truth": true,
+      "category": "secret"
+    },
+    "soren_sedatif": {
+      "text": "Le médecin Soren transporte un sédatif pouvant provoquer deux heures de sommeil sans séquelles.",
+      "truth": true,
+      "category": "means"
+    },
+    "dose_sedatif_manque": {
+      "text": "Une dose de ce sédatif manque dans la trousse de Soren.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "eira_paiement": {
+      "text": "Eira Vale, la doublure, a reçu une forte avance en pièces étrangères trois jours avant la cérémonie.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "eira_croit_protection": {
+      "text": "Eira affirme qu'on lui a présenté la substitution comme une opération destinée à protéger Aléa d'un attentat.",
+      "truth": true,
+      "category": "testimony"
+    },
+    "carrosse_service": {
+      "text": "Un petit carrosse de service a quitté la porte des cuisines à 18 h 52 puis est revenu vide avant 20 h.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "registre_carrosse": {
+      "text": "Le nom du passager du carrosse a été gratté sur le registre.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "archives_genealogie": {
+      "text": "Les archives dynastiques contiennent une contestation ancienne de la légitimité de la lignée d'Aléa.",
+      "truth": true,
+      "category": "secret"
+    },
+    "mirra_costumes": {
+      "text": "Mirra Dorne a eu accès aux mesures exactes d'Aléa et aux tissus de cérémonie.",
+      "truth": true,
+      "category": "means"
+    },
+    "mirra_dettes": {
+      "text": "Mirra doit une somme importante à un prêteur de la capitale.",
+      "truth": true,
+      "category": "secret"
+    },
+    "yselle_dispute": {
+      "text": "Yselle et Aléa se sont disputées dans l'après-midi au sujet d'une fuite possible du palais.",
+      "truth": true,
+      "category": "motive"
+    },
+    "rovan_loyaute": {
+      "text": "Rovan a juré fidélité à la mère d'Aléa avant de servir la cour actuelle.",
+      "truth": true,
+      "category": "motive"
+    },
+    "rumeur_coup_etat": {
+      "text": "Un garde est convaincu que Cael prépare un coup d'État dès le mariage célébré.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "rumeur_alea_deja_partie": {
+      "text": "Une cuisinière croit avoir vu Aléa quitter le palais avant 18 h, mais elle a probablement confondu sa silhouette avec celle d'Yselle.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "fenetre_substitution": {
+      "text": "La substitution a dû être organisée entre 18 h 35 et 19 h 05.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "issue_passage_cour": {
+      "text": "Le passage des tentures rejoint indirectement la cour intérieure par le corps de garde.",
+      "truth": true,
+      "category": "map"
+    },
+    "aucun_enlevement_force": {
+      "text": "Les indices disponibles ne prouvent pas qu'Aléa ait été contrainte physiquement à quitter le palais.",
+      "truth": true,
+      "category": "evidence"
+    }
+  },
+  "characters": [
+    {
+      "id": "yselle_aran",
+      "name": "Dame Yselle Aran",
+      "role": "Dame de compagnie d’Aléa",
+      "identity": {
+        "age": 27,
+        "type": "human"
+      },
+      "personality": [
+        "protectrice",
+        "fière"
+      ],
+      "public_description": "Compagne d'enfance de la princesse, elle connaît ses habitudes mieux que quiconque.",
+      "position_in_case": "Elle dit avoir préparé la suite puis cherché Aléa lorsqu'elle ne l'a plus trouvée.",
+      "motives": [
+        "Protéger Aléa d'un mariage forcé.",
+        "Éviter un scandale susceptible de détruire sa propre famille."
+      ],
+      "alibi": {
+        "claim": "Elle se trouvait entre la suite et la galerie.",
+        "strength": "Des serviteurs l'ont vue à plusieurs reprises.",
+        "weakness": "Personne ne peut couvrir tous ses déplacements durant la fenêtre critique."
+      },
+      "secrets": [
+        {
+          "id": "secret_yselle_double",
+          "fact_id": "yselle_connait_double",
+          "can_hide": true,
+          "reveal_conditions": []
+        },
+        {
+          "id": "secret_yselle_dispute",
+          "fact_id": "yselle_dispute",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "princesse_substituee",
+          "dernier_temoin_alea",
+          "visage_voile",
+          "yselle_connait_double",
+          "yselle_dispute",
+          "alea_vivante_probable",
+          "mariage_force",
+          "rumeur_alea_deja_partie"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "émotive mais contrôlée, loyale",
+        "speech_rules": [
+          "Parle d'Aléa comme d'une personne, jamais comme d'un symbole.",
+          "Cache d'abord sa dispute avec Aléa."
+        ]
+      },
+      "game": {
+        "room": "suite_princesse",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "rovan_kel",
+      "name": "Capitaine Rovan Kel",
+      "role": "Chef de la garde du palais",
+      "identity": {
+        "age": 46,
+        "type": "human"
+      },
+      "personality": [
+        "discipliné",
+        "méfiant"
+      ],
+      "public_description": "Ancien officier de Nereth chargé de la sécurité de la délégation.",
+      "position_in_case": "Il supervisait un changement de garde lorsque deux postes ont été temporairement abandonnés.",
+      "motives": [
+        "Protéger Aléa contre une menace crédible.",
+        "Préserver son honneur après une faille de sécurité."
+      ],
+      "alibi": {
+        "claim": "Il coordonnait la relève au corps de garde.",
+        "strength": "Plusieurs gardes confirment sa présence.",
+        "weakness": "Il a quitté le corps de garde pour vérifier lui-même la galerie."
+      },
+      "secrets": [
+        {
+          "id": "secret_rovan_loyaute",
+          "fact_id": "rovan_loyaute",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "lettre_menace",
+          "passage_tentures",
+          "cle_passage",
+          "cle_absente",
+          "rovan_ordre_faux",
+          "ordre_signature_douteuse",
+          "rovan_loyaute",
+          "issue_passage_cour"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "sec, militaire, précis",
+        "speech_rules": [
+          "Donne les heures et positions exactes.",
+          "Ne critique jamais publiquement la famille royale."
+        ]
+      },
+      "game": {
+        "room": "corps_de_garde",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "mered_valcor",
+      "name": "Chancelier Mered Valcor",
+      "role": "Chancelier du royaume",
+      "identity": {
+        "age": 58,
+        "type": "human"
+      },
+      "personality": [
+        "diplomate",
+        "opaque"
+      ],
+      "public_description": "Architecte politique du traité matrimonial, toujours soucieux de raison d'État.",
+      "position_in_case": "Il affirme avoir été en réunion dans la salle du Conseil jusqu'à l'arrivée de la délégation.",
+      "motives": [
+        "Faire aboutir le traité à n'importe quel prix.",
+        "Éviter que la clause secrète soit révélée avant la signature."
+      ],
+      "alibi": {
+        "claim": "Il présidait une réunion du Conseil.",
+        "strength": "Plusieurs conseillers confirment la réunion.",
+        "weakness": "Il s'est absenté brièvement pour recevoir un pli privé."
+      },
+      "secrets": [
+        {
+          "id": "secret_mered_clause",
+          "fact_id": "mered_clause",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "mariage_force",
+          "clause_secrete",
+          "rovan_ordre_faux",
+          "ordre_signature_douteuse",
+          "mered_clause",
+          "archives_genealogie",
+          "fenetre_substitution"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "courtois, abstrait, politique",
+        "speech_rules": [
+          "Parle en termes de stabilité et de traité.",
+          "Évite de discuter de la clause secrète."
+        ]
+      },
+      "game": {
+        "room": "salle_conseil",
+        "face": 2,
+        "body": 2,
+        "legs": 2,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "cael_orvain",
+      "name": "Prince Cael Orvain",
+      "role": "Héritier du royaume hôte",
+      "identity": {
+        "age": 25,
+        "type": "human"
+      },
+      "personality": [
+        "ironique",
+        "réservé"
+      ],
+      "public_description": "Fiancé politique d'Aléa, il affiche en public une obéissance parfaite au traité.",
+      "position_in_case": "Il se trouvait dans la chapelle avant la cérémonie selon deux religieux.",
+      "motives": [
+        "Échapper lui-même au mariage.",
+        "Empêcher une clause militaire qu'il juge désastreuse."
+      ],
+      "alibi": {
+        "claim": "Il priait dans la chapelle.",
+        "strength": "Deux personnes l'y ont vu avant et après la fenêtre critique.",
+        "weakness": "La chapelle donne directement sur le passage des tentures."
+      },
+      "secrets": [
+        {
+          "id": "secret_cael_refus",
+          "fact_id": "cael_refus_prive",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "mariage_force",
+          "clause_secrete",
+          "cael_refus_prive",
+          "passage_tentures",
+          "lettre_menace",
+          "rumeur_coup_etat",
+          "issue_passage_cour"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "détaché, intelligent, parfois mordant",
+        "speech_rules": [
+          "Utilise l'ironie quand il est acculé.",
+          "Ne reconnaît son opposition au mariage qu'avec une preuve."
+        ]
+      },
+      "game": {
+        "room": "chapelle",
+        "face": 3,
+        "body": 3,
+        "legs": 3,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "soren_malvek",
+      "name": "Maître Soren Malvek",
+      "role": "Médecin de la délégation",
+      "identity": {
+        "age": 51,
+        "type": "human"
+      },
+      "personality": [
+        "posé",
+        "paternaliste"
+      ],
+      "public_description": "Médecin personnel d'Aléa depuis son enfance, il connaît son état de santé et ses peurs.",
+      "position_in_case": "Il dit avoir préparé des remèdes dans la suite avant de rejoindre la grande salle.",
+      "motives": [
+        "Soustraire Aléa à une menace qu'il juge mortelle.",
+        "Cacher l'usage irrégulier de médicaments royaux."
+      ],
+      "alibi": {
+        "claim": "Il préparait les médicaments de voyage.",
+        "strength": "Sa trousse a été ouverte et plusieurs préparations ont été faites.",
+        "weakness": "Une dose de sédatif manque et ses déplacements ne sont pas tous attestés."
+      },
+      "secrets": [
+        {
+          "id": "secret_sedatif_soren",
+          "fact_id": "dose_sedatif_manque",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "alea_vivante_probable",
+          "lettre_menace",
+          "soren_sedatif",
+          "dose_sedatif_manque",
+          "aucun_enlevement_force",
+          "fenetre_substitution",
+          "sceau_authentique"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "doux, clinique, ferme",
+        "speech_rules": [
+          "S'exprime comme un médecin protecteur.",
+          "Refuse de spéculer sur un danger sans preuve."
+        ]
+      },
+      "game": {
+        "room": "grande_salle",
+        "face": 4,
+        "body": 4,
+        "legs": 4,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "mirra_dorne",
+      "name": "Mirra Dorne",
+      "role": "Maîtresse des costumes et cérémonies",
+      "identity": {
+        "age": 36,
+        "type": "human"
+      },
+      "personality": [
+        "créative",
+        "anxieuse"
+      ],
+      "public_description": "Responsable des vêtements officiels, des voiles et des préparatifs de présentation.",
+      "position_in_case": "Elle travaillait entre les cuisines et la grande salle avec plusieurs aides.",
+      "motives": [
+        "Rembourser ses dettes.",
+        "Aider quelqu'un qu'elle croit menacé."
+      ],
+      "alibi": {
+        "claim": "Elle supervisait les costumes dans l'office.",
+        "strength": "Des aides confirment qu'elle a travaillé sur les tenues.",
+        "weakness": "Elle pouvait quitter l'office par le service sans traverser la galerie principale."
+      },
+      "secrets": [
+        {
+          "id": "secret_mirra_dettes",
+          "fact_id": "mirra_dettes",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "costume_double",
+          "eira_paiement",
+          "carrosse_service",
+          "registre_carrosse",
+          "mirra_costumes",
+          "mirra_dettes",
+          "visage_voile",
+          "rumeur_alea_deja_partie"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "vive, nerveuse, concrète",
+        "speech_rules": [
+          "Parle tissus, tailles et détails matériels.",
+          "Ment d'abord sur ses dettes."
+        ]
+      },
+      "game": {
+        "room": "cuisines",
+        "face": 5,
+        "body": 5,
+        "legs": 5,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "eira_vale",
+      "name": "Eira Vale",
+      "role": "Comédienne et doublure",
+      "identity": {
+        "age": 23,
+        "type": "human"
+      },
+      "personality": [
+        "observatrice",
+        "apeurée"
+      ],
+      "public_description": "Jeune comédienne ressemblant fortement à Aléa ; elle admet désormais avoir joué son rôle pendant l'arrivée.",
+      "position_in_case": "Elle dit avoir suivi des instructions anonymes et n'avoir jamais vu où Aléa avait été conduite.",
+      "motives": [
+        "Éviter les représailles.",
+        "Comprendre qui l'a engagée."
+      ],
+      "alibi": {
+        "claim": "Elle attendait cachée avant de revêtir la tenue cérémonielle.",
+        "strength": "Le costume et le paiement confirment une préparation préalable.",
+        "weakness": "Elle refuse d'abord de dire par où elle est entrée dans le palais."
+      },
+      "secrets": [
+        {
+          "id": "secret_eira_paiement",
+          "fact_id": "eira_paiement",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "princesse_substituee",
+          "double_arrivee_1905",
+          "sceau_authentique",
+          "eira_paiement",
+          "eira_croit_protection",
+          "costume_double",
+          "carrosse_service"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "prudent, sincère mais terrifié",
+        "speech_rules": [
+          "Distingue les instructions reçues de ce qu'elle a réellement vu.",
+          "N'invente jamais l'identité de son commanditaire."
+        ]
+      },
+      "game": {
+        "room": "archives_dynastiques",
+        "face": 6,
+        "body": 6,
+        "legs": 6,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    }
+  ],
+  "relationships": [],
+  "timeline": [],
+  "clues": [],
+  "map": {
+    "width": 67,
+    "rows": [
+      "2222222222222222222222222222222222222222222222222222222222222222222",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     v                     v                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "22222222222h222222222222222222222h222222222222222222222h22222222222",
+      "2                                                                 2",
+      "2                                                                 2",
+      "2                                                                 2",
+      "2                                                                 2",
+      "22222222222h222222222222222222222h222222222222222222222h22222222222",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     v                     v                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "22222222222h222222222222222222222h222222222222222222222h22222222222",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     v                     v                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2                     2                     2                     2",
+      "2222222222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 33,
+      "y": 10
+    },
+    "rooms": [
+      {
+        "id": "grande_salle",
+        "name": "Grande salle des Ambassades",
+        "at": {
+          "x": 11,
+          "y": 4
+        }
+      },
+      {
+        "id": "salle_conseil",
+        "name": "Salle du Conseil",
+        "at": {
+          "x": 11,
+          "y": 17
+        }
+      },
+      {
+        "id": "cuisines",
+        "name": "Cuisines et office",
+        "at": {
+          "x": 11,
+          "y": 25
+        }
+      },
+      {
+        "id": "galerie_centrale",
+        "name": "Galerie du cloître",
+        "at": {
+          "x": 33,
+          "y": 10
+        }
+      },
+      {
+        "id": "cour_interieure",
+        "name": "Cour intérieure",
+        "at": {
+          "x": 33,
+          "y": 17
+        }
+      },
+      {
+        "id": "archives_dynastiques",
+        "name": "Archives dynastiques",
+        "at": {
+          "x": 33,
+          "y": 4
+        }
+      },
+      {
+        "id": "suite_princesse",
+        "name": "Suite de la princesse",
+        "at": {
+          "x": 55,
+          "y": 4
+        }
+      },
+      {
+        "id": "chapelle",
+        "name": "Chapelle des Deux Couronnes",
+        "at": {
+          "x": 55,
+          "y": 17
+        }
+      },
+      {
+        "id": "corps_de_garde",
+        "name": "Corps de garde",
+        "at": {
+          "x": 55,
+          "y": 25
+        }
+      },
+      {
+        "id": "passage_tentures",
+        "name": "Passage des tentures",
+        "at": {
+          "x": 33,
+          "y": 25
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_resolution_guidance": [
+      "Choisir exactement un culprit_id parmi les six suspect_ids ; Eira Vale est témoin et complice matériel possible, jamais le mastermind tiré au sort.",
+      "La véritable Aléa doit être vivante dans la résolution.",
+      "La résolution peut être malveillante ou protectrice : enlèvement politique, fuite organisée, prévention d'un attentat, sabotage du mariage ou manipulation diplomatique.",
+      "Ne jamais contredire l'absence de lutte ni le fait qu'Eira croyait participer à une opération de protection.",
+      "Utiliser les itinéraires de la carte : galerie, cour, passage des tentures, cuisines et corps de garde offrent plusieurs sorties plausibles."
+    ],
+    "victim": {
+      "id": "alea_nereth",
+      "name": "Princesse Aléa de Nereth",
+      "age": 24,
+      "role": "Héritière de Nereth, disparue mais présumée vivante"
+    },
+    "crime": {
+      "type": "substitution_et_disparition",
+      "location": "Palais d'Orvain",
+      "time_window": {
+        "start": "18:35",
+        "end": "19:05"
+      },
+      "cause": "La véritable princesse a quitté ou été soustraite à la délégation, puis remplacée par une doublure."
+    },
+    "suspect_ids": [
+      "yselle_aran",
+      "rovan_kel",
+      "mered_valcor",
+      "cael_orvain",
+      "soren_malvek",
+      "mirra_dorne"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null
+}

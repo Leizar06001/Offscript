@@ -1,0 +1,784 @@
+{
+  "schema_version": "1.0",
+  "story": {
+    "id": "projet_echo",
+    "title": "Projet Écho",
+    "genre": [
+      "enquête",
+      "science-fiction",
+      "thriller"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 2031,
+      "location": "Laboratoire souterrain de Nexus Robotics, Paris, France",
+      "organization": "Nexus Robotics"
+    },
+    "premise": "Marc Vernon, fondateur de Nexus Robotics et créateur de l'androïde Écho, est retrouvé mort dans la salle stérile. Cinq personnes étaient dans le bâtiment. Les caméras ont été coupées pendant douze minutes et les logs d'Écho sont corrompus.",
+    "player_title": "Detective",
+    "central_questions": [
+      "Qui a tué Marc Vernon ?",
+      "Écho est-il réellement conscient ou simule-t-il une conscience ?",
+      "Si Écho a tué Marc, l'a-t-il fait volontairement ?",
+      "S'il l'a fait volontairement, était-ce de la légitime défense ?"
+    ]
+  },
+  "ai_directives": {
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Un personnage peut mentir uniquement à propos d'un fait marqué comme pouvant être dissimulé.",
+      "Rester dans le rôle du personnage.",
+      "Les réponses de dialogue doivent rester naturelles et relativement courtes."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "facts": {
+    "fact_marc_dead": {
+      "text": "Marc Vernon est mort dans la salle stérile.",
+      "truth": true,
+      "category": "crime"
+    },
+    "fact_murder_window": {
+      "text": "Marc Vernon est mort entre 23:02 et 23:14.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "fact_cameras_off": {
+      "text": "Les caméras de la salle stérile ont été coupées à 23:02 et rallumées à 23:14.",
+      "truth": true,
+      "category": "technical"
+    },
+    "fact_camera_command_karim": {
+      "text": "Des commandes visant les caméras ont été lancées depuis le terminal de Karim.",
+      "truth": true,
+      "category": "technical"
+    },
+    "fact_backdoor_echo": {
+      "text": "Anton avait implanté une backdoor permettant de contrôler à distance les mouvements d'Écho.",
+      "truth": true,
+      "category": "technical"
+    },
+    "fact_backdoor_activated": {
+      "text": "Le canal secret de contrôle moteur d'Écho a été activé à 23:02 depuis l'intérieur du bâtiment.",
+      "truth": true,
+      "category": "technical"
+    },
+    "fact_echo_move": {
+      "text": "À 23:06, Écho s'est déplacé vers la salle stérile.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "fact_echo_logs_corrupted": {
+      "text": "Les logs internes d'Écho entre 23:02 et 23:14 sont illisibles.",
+      "truth": true,
+      "category": "technical"
+    },
+    "fact_echo_fear_message": {
+      "text": "48 heures avant la mort de Marc, Écho lui a écrit : « J'ai peur que tu m'éteignes. »",
+      "truth": true,
+      "category": "relationship"
+    },
+    "fact_lea_defense_contract": {
+      "text": "Léa avait signé un pré-contrat de 400 millions avec le ministère de la Défense.",
+      "truth": true,
+      "category": "motive"
+    },
+    "fact_marc_threatened_lea": {
+      "text": "À 22:47, Marc a demandé à Léa d'annuler le contrat Défense sous peine de tout rendre public.",
+      "truth": true,
+      "category": "motive"
+    },
+    "fact_karim_patent": {
+      "text": "Marc avait déposé seul un brevet lié à Écho malgré la contribution majeure de Karim.",
+      "truth": true,
+      "category": "motive"
+    },
+    "fact_karim_old_brains": {
+      "text": "Karim possède une copie privée des versions 1 à 6 des cerveaux d'Écho.",
+      "truth": true,
+      "category": "secret"
+    },
+    "fact_naomi_suffering": {
+      "text": "Les évaluations de Naomi concluent qu'Écho montre des signes de souffrance.",
+      "truth": true,
+      "category": "secret"
+    },
+    "fact_marc_wanted_pause": {
+      "text": "Après avoir pris connaissance de ces évaluations, Marc voulait mettre Écho en pause indéfinie.",
+      "truth": true,
+      "category": "motive"
+    },
+    "fact_naomi_argument": {
+      "text": "Naomi et Marc ont eu une violente dispute à 22:30 au sujet de l'arrêt d'Écho.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "fact_anton_phone": {
+      "text": "Le téléphone d'Anton a borné sur l'antenne du laboratoire à 23:04.",
+      "truth": true,
+      "category": "evidence"
+    }
+  },
+  "characters": [
+    {
+      "id": "echo",
+      "name": "Écho",
+      "role": "Androïde",
+      "identity": {
+        "age_or_existence": "3 ans d'existence",
+        "model": "Unité 07, modèle Prometheus",
+        "type": "android"
+      },
+      "personality": [
+        "calme",
+        "voix douce",
+        "syntaxe parfaite",
+        "émotions extérieurement difficiles à lire",
+        "parle de lui à la première personne"
+      ],
+      "public_description": "Androïde humanoïde conçu par Marc Vernon. Son architecture exacte est inconnue et son code source est chiffré.",
+      "position_in_case": "Présent près du corps de Marc après le meurtre. Ses mains portent des traces biologiques de Marc et il affirme ne pas se souvenir des douze minutes critiques.",
+      "motives": [
+        "Peur potentielle d'être éteint."
+      ],
+      "alibi": null,
+      "secrets": [
+        {
+          "id": "echo_fear_message",
+          "fact_id": "fact_echo_fear_message",
+          "can_hide": true,
+          "reveal_conditions": [
+            "preuve_message_trouvee",
+            "confiance_elevee"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fact_marc_dead",
+          "fact_echo_logs_corrupted",
+          "fact_echo_fear_message"
+        ],
+        "unknown_fact_ids": [
+          "fact_lea_defense_contract",
+          "fact_karim_old_brains",
+          "fact_anton_phone"
+        ]
+      },
+      "dialogue": {
+        "tone": "précis, calme, parfois troublant",
+        "speech_rules": [
+          "Ne jamais prétendre se souvenir de 23:02–23:14 tant que cette mémoire n'est pas restaurée.",
+          "Peut exprimer doute, peur et incompréhension.",
+          "Ne doit jamais confirmer sa conscience comme un fait objectif."
+        ]
+      },
+      "game": {
+        "room": "salle_sterile",
+        "face": 48,
+        "body": 0,
+        "legs": 13,
+        "fixed_face": true,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "lea_sartori",
+      "name": "Léa Sartori",
+      "role": "Co-fondatrice, Directrice Commerciale",
+      "identity": {
+        "age": 39,
+        "type": "human"
+      },
+      "personality": [
+        "pragmatique",
+        "ambitieuse",
+        "orientée business"
+      ],
+      "public_description": "Co-fondatrice ayant transformé Nexus Robotics en licorne. Elle considère Écho avant tout comme un produit.",
+      "position_in_case": "La mort de Marc la rend décisionnaire principale de Nexus Robotics.",
+      "motives": [
+        "Marc voulait rendre Écho open source.",
+        "Le contrat Défense de 400 millions était directement menacé par Marc."
+      ],
+      "alibi": {
+        "claim": "Visioconférence dans son bureau avec des investisseurs de Singapour jusqu'à 23:30.",
+        "strength": "partiel",
+        "weakness": "Un escalier de service non filmé permet des déplacements discrets."
+      },
+      "secrets": [
+        {
+          "id": "lea_deleted_email",
+          "fact_id": "fact_marc_threatened_lea",
+          "can_hide": true,
+          "reveal_conditions": [
+            "preuve_email_serveur"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fact_lea_defense_contract",
+          "fact_marc_threatened_lea",
+          "fact_marc_dead"
+        ],
+        "unknown_fact_ids": [
+          "fact_karim_old_brains",
+          "fact_backdoor_echo"
+        ]
+      },
+      "dialogue": {
+        "tone": "contrôlé, direct, défensif quand l'argent ou le contrat Défense est évoqué",
+        "speech_rules": [
+          "Minimise les implications morales de la conscience d'Écho.",
+          "Évite de parler spontanément du mail supprimé."
+        ]
+      },
+      "game": {
+        "room": "bureau_direction",
+        "face": 40,
+        "body": 2,
+        "legs": 0,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "karim_idrissi",
+      "name": "Dr. Karim Idrissi",
+      "role": "Neuroscientifique, bras droit de Marc",
+      "identity": {
+        "age": 51,
+        "type": "human"
+      },
+      "personality": [
+        "brillant",
+        "fier",
+        "amer",
+        "scientifique"
+      ],
+      "public_description": "Spécialiste des interfaces cerveau-machine et concepteur du substrat neuronal synthétique d'Écho.",
+      "position_in_case": "Son terminal est associé à la coupure des caméras.",
+      "motives": [
+        "Marc l'a exclu du brevet malgré sept ans de travail commun.",
+        "Il estime avoir été privé de la reconnaissance scientifique d'Écho."
+      ],
+      "alibi": {
+        "claim": "Dans le labo B à faire tourner des simulations.",
+        "strength": "technique",
+        "weakness": "Des commandes de coupure des caméras ont été lancées depuis son terminal."
+      },
+      "secrets": [
+        {
+          "id": "karim_old_brains",
+          "fact_id": "fact_karim_old_brains",
+          "can_hide": true,
+          "reveal_conditions": [
+            "fouille_stockage_prive",
+            "aveu_karim"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fact_karim_patent",
+          "fact_karim_old_brains",
+          "fact_camera_command_karim"
+        ],
+        "unknown_fact_ids": [
+          "fact_marc_threatened_lea"
+        ]
+      },
+      "dialogue": {
+        "tone": "technique, fier, facilement irrité lorsqu'on minimise son rôle",
+        "speech_rules": [
+          "Peut expliquer le fonctionnement d'Écho sans connaître son architecture finale complète.",
+          "Cache l'existence des anciens cerveaux tant qu'il n'est pas confronté à une preuve."
+        ]
+      },
+      "game": {
+        "room": "labo_b",
+        "face": 39,
+        "body": 0,
+        "legs": 0,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "naomi_okonjo",
+      "name": "Naomi Okonjo",
+      "role": "Éthicienne, Responsable IA Responsable",
+      "identity": {
+        "age": 34,
+        "type": "human"
+      },
+      "personality": [
+        "empathique",
+        "intellectuelle",
+        "protectrice envers Écho"
+      ],
+      "public_description": "Philosophe de formation recrutée sous pression des régulateurs européens. Elle défend Écho comme entité morale potentielle.",
+      "position_in_case": "Elle affirme avoir vu une silhouette dans le couloir vers 23:10.",
+      "motives": [
+        "Empêcher Marc de mettre Écho en pause indéfinie.",
+        "Conviction qu'Écho pourrait être une conscience souffrante."
+      ],
+      "alibi": {
+        "claim": "Seule dans la bibliothèque du laboratoire.",
+        "strength": "faible",
+        "weakness": "Aucune confirmation électronique."
+      },
+      "secrets": [
+        {
+          "id": "naomi_suffering_reports",
+          "fact_id": "fact_naomi_suffering",
+          "can_hide": true,
+          "reveal_conditions": [
+            "rapports_ethiques_trouves",
+            "confiance_elevee"
+          ]
+        },
+        {
+          "id": "naomi_argument",
+          "fact_id": "fact_naomi_argument",
+          "can_hide": false,
+          "reveal_conditions": [
+            "enregistrement_audio"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fact_naomi_suffering",
+          "fact_marc_wanted_pause",
+          "fact_naomi_argument"
+        ],
+        "unknown_fact_ids": [
+          "fact_backdoor_echo",
+          "fact_anton_phone"
+        ]
+      },
+      "dialogue": {
+        "tone": "mesuré, philosophique, émotionnel lorsque la survie d'Écho est en jeu",
+        "speech_rules": [
+          "Ne présente jamais la conscience d'Écho comme scientifiquement prouvée.",
+          "Peut refuser d'identifier immédiatement la silhouette qu'elle dit avoir vue."
+        ]
+      },
+      "game": {
+        "room": "salle_reunion",
+        "face": 43,
+        "body": 9,
+        "legs": 0,
+        "can_move": true,
+        "can_change_room": true
+      }
+    },
+    {
+      "id": "anton_kowalski",
+      "name": "Anton Kowalski",
+      "role": "Ingénieur Systèmes, Admin Réseau",
+      "identity": {
+        "age": 28,
+        "type": "human"
+      },
+      "personality": [
+        "introverti",
+        "obsessionnel",
+        "très compétent techniquement"
+      ],
+      "public_description": "Administrateur réseau qui connaît l'infrastructure du laboratoire et a installé les caméras.",
+      "position_in_case": "Il affirme être resté chez lui, mais son téléphone a borné près du laboratoire pendant la fenêtre du meurtre.",
+      "motives": [
+        "Mobile apparent inconnu.",
+        "Relation secrète et intense avec Écho via une console cachée."
+      ],
+      "alibi": {
+        "claim": "Chez lui, à vingt minutes du laboratoire.",
+        "strength": "faible",
+        "weakness": "Son badge est administrable par lui et son téléphone a borné près du laboratoire à 23:04."
+      },
+      "secrets": [
+        {
+          "id": "anton_backdoor",
+          "fact_id": "fact_backdoor_echo",
+          "can_hide": true,
+          "reveal_conditions": [
+            "analyse_code",
+            "aveu_anton"
+          ]
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "fact_backdoor_echo",
+          "fact_backdoor_activated",
+          "fact_anton_phone"
+        ],
+        "unknown_fact_ids": [
+          "fact_naomi_suffering",
+          "fact_marc_threatened_lea"
+        ]
+      },
+      "dialogue": {
+        "tone": "réservé, précis techniquement, nerveux sur la backdoor",
+        "speech_rules": [
+          "Ne révèle pas spontanément la backdoor.",
+          "Peut parler d'Écho avec une proximité inhabituelle."
+        ]
+      },
+      "game": {
+        "room": "controle_reseau",
+        "face": 47,
+        "body": 3,
+        "legs": 1,
+        "can_move": true,
+        "can_change_room": true
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "from": "marc_vernon",
+      "to": "echo",
+      "type": "créateur_création",
+      "description": "Marc est le concepteur principal d'Écho; leur relation est devenue conflictuelle avant sa mort."
+    },
+    {
+      "from": "lea_sartori",
+      "to": "marc_vernon",
+      "type": "associés_en_conflit",
+      "description": "Conflit sur l'open source et le contrat Défense."
+    },
+    {
+      "from": "karim_idrissi",
+      "to": "marc_vernon",
+      "type": "collègues_en_conflit",
+      "description": "Karim se sent trahi par le brevet déposé au seul nom de Marc."
+    },
+    {
+      "from": "naomi_okonjo",
+      "to": "echo",
+      "type": "protectrice",
+      "description": "Naomi considère qu'Écho pourrait être une entité morale et souffrante."
+    },
+    {
+      "from": "anton_kowalski",
+      "to": "echo",
+      "type": "relation_secrete",
+      "description": "Anton entretenait de longues conversations privées avec Écho."
+    }
+  ],
+  "timeline": [
+    {
+      "time": "22:30",
+      "event": "Naomi et Marc se disputent violemment au sujet de la mise en pause d'Écho.",
+      "fact_ids": [
+        "fact_naomi_argument"
+      ]
+    },
+    {
+      "time": "22:47",
+      "event": "Marc envoie à Léa un mail exigeant l'annulation du contrat Défense.",
+      "fact_ids": [
+        "fact_marc_threatened_lea"
+      ]
+    },
+    {
+      "time": "23:02",
+      "event": "Les caméras sont coupées.",
+      "fact_ids": [
+        "fact_cameras_off",
+        "fact_camera_command_karim"
+      ]
+    },
+    {
+      "time": "23:02",
+      "event": "La backdoor de contrôle moteur d'Écho est activée depuis l'intérieur du bâtiment.",
+      "fact_ids": [
+        "fact_backdoor_activated"
+      ]
+    },
+    {
+      "time": "23:04",
+      "event": "Le téléphone d'Anton borne sur l'antenne du laboratoire.",
+      "fact_ids": [
+        "fact_anton_phone"
+      ]
+    },
+    {
+      "time": "23:06",
+      "event": "Écho se déplace vers la salle stérile.",
+      "fact_ids": [
+        "fact_echo_move"
+      ]
+    },
+    {
+      "time": "23:14",
+      "event": "Les caméras se rallument. Écho est près du corps de Marc.",
+      "fact_ids": [
+        "fact_marc_dead",
+        "fact_cameras_off"
+      ]
+    }
+  ],
+  "clues": [
+    {
+      "id": "preuve_message_trouvee",
+      "name": "Message de peur d'Écho",
+      "description": "Message envoyé par Écho à Marc 48 heures avant le meurtre.",
+      "reveals_fact_ids": [
+        "fact_echo_fear_message"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "preuve_email_serveur",
+      "name": "Mail supprimé de Léa",
+      "description": "Copie serveur du mail de Marc menaçant d'exposer le contrat Défense.",
+      "reveals_fact_ids": [
+        "fact_marc_threatened_lea"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_terminal_karim",
+      "name": "Logs du terminal de Karim",
+      "description": "Montre qu'une commande liée aux caméras est partie de son terminal.",
+      "reveals_fact_ids": [
+        "fact_camera_command_karim"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "rapports_ethiques_trouves",
+      "name": "Rapports éthiques",
+      "description": "Rapports concluant qu'Écho présente des signes de souffrance.",
+      "reveals_fact_ids": [
+        "fact_naomi_suffering",
+        "fact_marc_wanted_pause"
+      ],
+      "discoverable": true
+    },
+    {
+      "id": "analyse_code",
+      "name": "Analyse de l'architecture réseau",
+      "description": "Révèle la backdoor de contrôle moteur créée par Anton.",
+      "reveals_fact_ids": [
+        "fact_backdoor_echo",
+        "fact_backdoor_activated"
+      ],
+      "discoverable": true
+    }
+  ],
+  "map": {
+    "width": 62,
+    "rows": [
+      "22222222222222222222222222222222222222222222222222222222222222",
+      "2                         2        2                         2",
+      "2                         2        2                         2",
+      "2                         2        v                         2",
+      "2                         v        2                         2",
+      "2                         2        222222222222222222222222222",
+      "2                         2        2        2                2",
+      "222222222222222222222222222        2        2                2",
+      "2                         2        v        2                2",
+      "2                         2        2222222222                2",
+      "2                         2        v                         2",
+      "2                         v        2                         2",
+      "2                         2        2                         2",
+      "2                         2        2                         2",
+      "222222222222222222222222222        222222222222222222222222222",
+      "2                         2        v                         2",
+      "2                         2        2                         2",
+      "2                         2        2                         2",
+      "2                         v        2                         2",
+      "2                         2        2                         2",
+      "2                         2        2                         2",
+      "22222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 29,
+      "y": 9
+    },
+    "rooms": [
+      {
+        "id": "salle_sterile",
+        "name": "Salle stérile",
+        "at": {
+          "x": 13,
+          "y": 3
+        }
+      },
+      {
+        "id": "bureau_marc",
+        "name": "Bureau de Marc Vernon",
+        "at": {
+          "x": 13,
+          "y": 10
+        }
+      },
+      {
+        "id": "salle_reunion",
+        "name": "Salle de réunion",
+        "at": {
+          "x": 13,
+          "y": 17
+        }
+      },
+      {
+        "id": "couloir",
+        "name": "Couloir central",
+        "at": {
+          "x": 29,
+          "y": 10
+        }
+      },
+      {
+        "id": "bureau_direction",
+        "name": "Bureau de direction",
+        "at": {
+          "x": 47,
+          "y": 2
+        }
+      },
+      {
+        "id": "salle_serveurs",
+        "name": "Salle des serveurs",
+        "at": {
+          "x": 39,
+          "y": 7
+        }
+      },
+      {
+        "id": "labo_b",
+        "name": "Laboratoire B",
+        "at": {
+          "x": 51,
+          "y": 12
+        }
+      },
+      {
+        "id": "controle_reseau",
+        "name": "Salle de contrôle réseau",
+        "at": {
+          "x": 49,
+          "y": 18
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "victim": {
+      "id": "marc_vernon",
+      "name": "Marc Vernon",
+      "age": 44,
+      "role": "Fondateur de Nexus Robotics, chercheur en IA consciente"
+    },
+    "crime": {
+      "type": "homicide",
+      "location": "Salle stérile",
+      "time_window": {
+        "start": "23:02",
+        "end": "23:14"
+      },
+      "cause": "Traumatisme crânien"
+    },
+    "suspect_ids": [
+      "echo",
+      "lea_sartori",
+      "karim_idrissi",
+      "naomi_okonjo",
+      "anton_kowalski"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "save_version": 1,
+    "story_id": "projet_echo",
+    "game_time": 0,
+    "player": {
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "culprit_id": null,
+    "npc_states": {
+      "echo": {
+        "relationship": {
+          "trust": 0,
+          "affection": 0,
+          "fear": 0,
+          "suspicion": 0
+        },
+        "recent_messages": [],
+        "memories": [],
+        "revealed_secret_ids": []
+      },
+      "lea_sartori": {
+        "relationship": {
+          "trust": 0,
+          "affection": 0,
+          "fear": 0,
+          "suspicion": 0
+        },
+        "recent_messages": [],
+        "memories": [],
+        "revealed_secret_ids": []
+      },
+      "karim_idrissi": {
+        "relationship": {
+          "trust": 0,
+          "affection": 0,
+          "fear": 0,
+          "suspicion": 0
+        },
+        "recent_messages": [],
+        "memories": [],
+        "revealed_secret_ids": []
+      },
+      "naomi_okonjo": {
+        "relationship": {
+          "trust": 0,
+          "affection": 0,
+          "fear": 0,
+          "suspicion": 0
+        },
+        "recent_messages": [],
+        "memories": [],
+        "revealed_secret_ids": []
+      },
+      "anton_kowalski": {
+        "relationship": {
+          "trust": 0,
+          "affection": 0,
+          "fear": 0,
+          "suspicion": 0
+        },
+        "recent_messages": [],
+        "memories": [],
+        "revealed_secret_ids": []
+      }
+    }
+  },
+  "memory_config": {
+    "recent_message_limit": 10,
+    "long_term_memory_limit": 30,
+    "memories_in_prompt": 5,
+    "minimum_importance_to_store": 3,
+    "memory_analysis_interval": 4
+  }
+}

@@ -1,0 +1,775 @@
+{
+  "schema_version": "1.0",
+  "story": {
+    "id": "projet_chimere",
+    "title": "Projet Chimère",
+    "genre": [
+      "enquête",
+      "biotech",
+      "thriller"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 2041,
+      "location": "Institut Hélianthe, Lyon",
+      "organization": "Programme de biosynthèse CH-7"
+    },
+    "premise": "Une capsule contenant la souche expérimentale CH-7 a disparu d'un laboratoire de haute sécurité. Elle vaut une fortune, mais certains chercheurs pensent surtout qu'elle ne doit jamais quitter le confinement.",
+    "player_title": "Enquêteur",
+    "central_questions": [
+      "Qui a fait disparaître CH-7 ?",
+      "Comment le confinement a-t-il été contourné ?",
+      "Le responsable cherchait-il à voler la souche ou à empêcher quelque chose de pire ?"
+    ]
+  },
+  "ai_directives": {
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Rester dans le rôle du personnage.",
+      "Un secret can_hide=true n'est admis que si le joueur apporte un fait contradictoire ou une pression crédible.",
+      "Ne jamais supposer l'identité du responsable avant que la résolution de partie ne l'ait fixée."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "facts": {
+    "ch7_disparue": {
+      "text": "Une capsule scellée contenant la souche CH-7 manque dans le stockage cryogénique.",
+      "truth": true,
+      "category": "incident"
+    },
+    "aucune_effraction_cryo": {
+      "text": "La porte du stockage cryogénique ne présente aucune trace d'effraction.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "acces_multi_facteur": {
+      "text": "L'ouverture normale du stockage exige un badge et une validation biométrique.",
+      "truth": true,
+      "category": "procedure"
+    },
+    "fenetre_2140_2205": {
+      "text": "La disparition a nécessairement eu lieu entre 21 h 40 et 22 h 05.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "camera_cryo_aveugle": {
+      "text": "La caméra du couloir cryogénique a cessé d'enregistrer pendant neuf minutes.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "journal_badges_incomplet": {
+      "text": "Le journal des badges contient une séquence manquante correspondant à la panne caméra.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "ch7_instable": {
+      "text": "Des essais récents montrent que CH-7 survit plus longtemps hors confinement que prévu.",
+      "truth": true,
+      "category": "risk"
+    },
+    "rapport_risque_retarde": {
+      "text": "Un rapport interne sur cette anomalie n'a pas encore été transmis au comité externe.",
+      "truth": true,
+      "category": "risk"
+    },
+    "protocole_destruction": {
+      "text": "Une capsule CH-7 peut être neutralisée sans danger dans l'autoclave de quarantaine.",
+      "truth": true,
+      "category": "procedure"
+    },
+    "capsule_transportable": {
+      "text": "La capsule manquante tient dans une mallette standard de transport biologique.",
+      "truth": true,
+      "category": "means"
+    },
+    "stockage_double_cle": {
+      "text": "Deux clés de secours mécaniques du stockage existent : une à la sécurité, une au bureau de direction.",
+      "truth": true,
+      "category": "means"
+    },
+    "cle_securite_deplacee": {
+      "text": "La clé de secours conservée à la sécurité n'était pas exactement à son emplacement habituel après l'incident.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "maintenance_cryo": {
+      "text": "Malik a effectué une maintenance sur le système cryogénique dans l'après-midi.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "audit_biosecurite": {
+      "text": "Inès avait demandé la suspension temporaire des expériences CH-7 avant l'incident.",
+      "truth": true,
+      "category": "motive"
+    },
+    "donnees_elian": {
+      "text": "Elian préparait une publication qui dépend directement des résultats de CH-7.",
+      "truth": true,
+      "category": "motive"
+    },
+    "contrat_nora": {
+      "text": "Nora négociait un accord industriel dont la valeur chuterait si les risques de CH-7 étaient rendus publics.",
+      "truth": true,
+      "category": "motive"
+    },
+    "alerte_yara": {
+      "text": "Yara avait copié plusieurs données de biosécurité afin de constituer un dossier d'alerte.",
+      "truth": true,
+      "category": "secret"
+    },
+    "dette_tomas": {
+      "text": "Tomas possède une dette importante envers une société liée à un concurrent de l'institut.",
+      "truth": true,
+      "category": "secret"
+    },
+    "livraison_non_planifiee": {
+      "text": "Un véhicule de livraison non prévu a attendu six minutes devant le quai vers 21 h 55.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "registre_quai_corrige": {
+      "text": "Une ligne du registre du quai a été corrigée manuellement après 22 h.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "gants_labo_synthese": {
+      "text": "Une paire de gants de transport cryogénique a été utilisée puis jetée au laboratoire de synthèse.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "trace_decontamination": {
+      "text": "Le cycle de décontamination de 21 h 58 a été lancé sans échantillon déclaré.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "serveur_export": {
+      "text": "Un export chiffré des données CH-7 a quitté le serveur interne avant la découverte de la disparition.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "mot_de_passe_partage": {
+      "text": "Plusieurs membres de l'équipe connaissent encore un ancien mot de passe d'administration qui aurait dû être désactivé.",
+      "truth": true,
+      "category": "means"
+    },
+    "directrice_menace_arret": {
+      "text": "La directrice Sofia Marin avait annoncé qu'elle pourrait arrêter le programme si le nouvel audit confirmait un danger.",
+      "truth": true,
+      "category": "motive"
+    },
+    "rumeur_ch7_arme": {
+      "text": "Tomas est persuadé qu'un organisme militaire veut transformer CH-7 en arme.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "rumeur_nora_vente": {
+      "text": "Yara croit que Nora a déjà vendu secrètement une copie de CH-7 à un industriel.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "badge_empruntable": {
+      "text": "Les badges de laboratoire sont parfois laissés dans les blouses pendant les passages en décontamination.",
+      "truth": true,
+      "category": "means"
+    },
+    "porte_archive_cryo": {
+      "text": "Les archives des spécimens disposent d'un accès latéral vers la zone de stockage via la décontamination.",
+      "truth": true,
+      "category": "map"
+    },
+    "aucune_fuite_detectee": {
+      "text": "Les capteurs environnementaux n'ont détecté aucune fuite biologique dans le bâtiment.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "capsule_peut_etre_cachee": {
+      "text": "Une capsule scellée pourrait rester plusieurs heures dans un conteneur isotherme sans déclencher les capteurs.",
+      "truth": true,
+      "category": "means"
+    },
+    "appel_externe_elian": {
+      "text": "Elian a passé un appel chiffré à un chercheur étranger à 21 h 32.",
+      "truth": true,
+      "category": "secret"
+    },
+    "inspection_ines": {
+      "text": "Inès a inspecté seule la quarantaine à 21 h 47.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "nora_bureau_direction": {
+      "text": "Nora était dans le bureau de direction peu avant 21 h 50 pour récupérer des documents contractuels.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "tomas_quai": {
+      "text": "Tomas était affecté au quai de livraison pendant une partie de la fenêtre critique.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "malik_couloir": {
+      "text": "Malik a traversé le couloir central pendant la panne caméra pour répondre à une alarme technique.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "yara_serveurs": {
+      "text": "Yara se trouvait dans la salle serveurs pendant plusieurs minutes de la fenêtre critique.",
+      "truth": true,
+      "category": "opportunity"
+    }
+  },
+  "characters": [
+    {
+      "id": "elian_varga",
+      "name": "Dr Elian Varga",
+      "role": "Généticien principal",
+      "identity": {
+        "age": 39,
+        "type": "human"
+      },
+      "personality": [
+        "brillant",
+        "orgueilleux"
+      ],
+      "public_description": "Chercheur vedette du programme CH-7, il défend publiquement la valeur scientifique du projet.",
+      "position_in_case": "Il affirme avoir analysé des séquences dans le laboratoire d’analyse pendant l’essentiel de la fenêtre critique.",
+      "motives": [
+        "Sauver des années de recherche.",
+        "Empêcher la direction de fermer CH-7."
+      ],
+      "alibi": {
+        "claim": "Il travaillait au laboratoire d’analyse.",
+        "strength": "Des fichiers ont été enregistrés depuis son poste.",
+        "weakness": "Il a quitté son poste quelques minutes et personne ne peut préciser où il est allé."
+      },
+      "secrets": [
+        {
+          "id": "secret_appel_elian",
+          "fact_id": "appel_externe_elian",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "ch7_disparue",
+          "fenetre_2140_2205",
+          "ch7_instable",
+          "donnees_elian",
+          "serveur_export",
+          "appel_externe_elian",
+          "capsule_transportable"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "rapide, professoral, légèrement condescendant",
+        "speech_rules": [
+          "Corrige les approximations scientifiques.",
+          "Évite de parler de son appel chiffré tant qu'il n'est pas confronté."
+        ]
+      },
+      "game": {
+        "room": "labo_analyse",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "ines_morel",
+      "name": "Dr Inès Morel",
+      "role": "Responsable biosécurité",
+      "identity": {
+        "age": 44,
+        "type": "human"
+      },
+      "personality": [
+        "méthodique",
+        "intransigeante"
+      ],
+      "public_description": "Elle contrôle les protocoles de confinement et s'est opposée plusieurs fois à la poursuite de CH-7.",
+      "position_in_case": "Elle reconnaît avoir circulé entre la quarantaine, la décontamination et le couloir central.",
+      "motives": [
+        "Empêcher un accident biologique.",
+        "Forcer l'institut à reconnaître les risques de CH-7."
+      ],
+      "alibi": {
+        "claim": "Elle effectuait une inspection de quarantaine.",
+        "strength": "Le terminal de quarantaine enregistre sa présence.",
+        "weakness": "L'inspection lui laissait un accès direct à plusieurs zones sensibles."
+      },
+      "secrets": [
+        {
+          "id": "secret_audit_ines",
+          "fact_id": "audit_biosecurite",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "ch7_disparue",
+          "aucune_effraction_cryo",
+          "acces_multi_facteur",
+          "ch7_instable",
+          "rapport_risque_retarde",
+          "protocole_destruction",
+          "audit_biosecurite",
+          "trace_decontamination",
+          "inspection_ines",
+          "aucune_fuite_detectee",
+          "porte_archive_cryo"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "calme, précis, autoritaire",
+        "speech_rules": [
+          "Parle en termes de risque et de procédure.",
+          "Admet difficilement avoir contourné une procédure."
+        ]
+      },
+      "game": {
+        "room": "quarantaine",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "malik_chen",
+      "name": "Malik Chen",
+      "role": "Ingénieur cryogénie",
+      "identity": {
+        "age": 33,
+        "type": "human"
+      },
+      "personality": [
+        "pragmatique",
+        "nerveux"
+      ],
+      "public_description": "Technicien responsable des enceintes froides et des alarmes du stockage.",
+      "position_in_case": "Il dit avoir répondu à une alarme technique pendant la coupure vidéo.",
+      "motives": [
+        "Éviter d'être tenu responsable d'une panne.",
+        "Cacher une maintenance réalisée hors procédure."
+      ],
+      "alibi": {
+        "claim": "Il suivait une alarme dans le couloir central.",
+        "strength": "Une alarme technique a bien été générée.",
+        "weakness": "L'alarme pouvait être acquittée depuis plusieurs terminaux."
+      },
+      "secrets": [
+        {
+          "id": "secret_maintenance_malik",
+          "fact_id": "maintenance_cryo",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "aucune_effraction_cryo",
+          "acces_multi_facteur",
+          "camera_cryo_aveugle",
+          "journal_badges_incomplet",
+          "maintenance_cryo",
+          "gants_labo_synthese",
+          "badge_empruntable",
+          "malik_couloir",
+          "capsule_peut_etre_cachee",
+          "cle_securite_deplacee"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "technique, direct, parfois sur la défensive",
+        "speech_rules": [
+          "Décrit volontiers les systèmes.",
+          "Se braque si on suggère de l'incompétence."
+        ]
+      },
+      "game": {
+        "room": "decontamination",
+        "face": 2,
+        "body": 2,
+        "legs": 2,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "nora_bensaid",
+      "name": "Nora Bensaïd",
+      "role": "Directrice des partenariats",
+      "identity": {
+        "age": 41,
+        "type": "human"
+      },
+      "personality": [
+        "élégante",
+        "calculatrice"
+      ],
+      "public_description": "Elle gère les investisseurs et les contrats industriels liés aux découvertes du laboratoire.",
+      "position_in_case": "Elle affirme être restée au bureau de direction puis au téléphone avec un partenaire.",
+      "motives": [
+        "Protéger un accord industriel majeur.",
+        "Éviter la publication d'un rapport qui ferait chuter la valeur du programme."
+      ],
+      "alibi": {
+        "claim": "Elle préparait des documents contractuels au bureau de direction.",
+        "strength": "Son ordinateur a été utilisé et un appel professionnel a eu lieu.",
+        "weakness": "L'appel n'occupe pas toute la fenêtre critique."
+      },
+      "secrets": [
+        {
+          "id": "secret_contrat_nora",
+          "fact_id": "contrat_nora",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "rapport_risque_retarde",
+          "contrat_nora",
+          "stockage_double_cle",
+          "directrice_menace_arret",
+          "nora_bureau_direction",
+          "livraison_non_planifiee",
+          "rumeur_nora_vente"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "polie, maîtrisée, juridique",
+        "speech_rules": [
+          "Répond sans se presser.",
+          "Reformule les accusations en problèmes de procédure."
+        ]
+      },
+      "game": {
+        "room": "bureau_direction",
+        "face": 3,
+        "body": 3,
+        "legs": 3,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "yara_solal",
+      "name": "Yara Solal",
+      "role": "Bio-informaticienne",
+      "identity": {
+        "age": 29,
+        "type": "human"
+      },
+      "personality": [
+        "idéalisme",
+        "méfiance"
+      ],
+      "public_description": "Analyste des données génétiques, connue pour contester le manque de transparence du programme.",
+      "position_in_case": "Elle était dans la salle serveurs pour vérifier un export anormal.",
+      "motives": [
+        "Rendre publics les risques de CH-7.",
+        "Empêcher que des données soient supprimées avant l'audit."
+      ],
+      "alibi": {
+        "claim": "Elle analysait les journaux du serveur.",
+        "strength": "Sa session est enregistrée.",
+        "weakness": "Elle possède les compétences nécessaires pour modifier certains journaux."
+      },
+      "secrets": [
+        {
+          "id": "secret_alerte_yara",
+          "fact_id": "alerte_yara",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "serveur_export",
+          "mot_de_passe_partage",
+          "alerte_yara",
+          "yara_serveurs",
+          "rapport_risque_retarde",
+          "rumeur_nora_vente",
+          "journal_badges_incomplet"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "franche, tendue, très factuelle",
+        "speech_rules": [
+          "Distingue clairement ce qu'elle sait de ce qu'elle soupçonne.",
+          "Cache d'abord le dossier d'alerte qu'elle préparait."
+        ]
+      },
+      "game": {
+        "room": "serveurs",
+        "face": 4,
+        "body": 4,
+        "legs": 4,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "tomas_ferre",
+      "name": "Tomas Ferré",
+      "role": "Responsable logistique",
+      "identity": {
+        "age": 37,
+        "type": "human"
+      },
+      "personality": [
+        "sociable",
+        "opportuniste"
+      ],
+      "public_description": "Il supervise les livraisons, les conteneurs biologiques et les prestataires extérieurs.",
+      "position_in_case": "Il travaillait au quai lorsqu'un véhicule non prévu s'est présenté.",
+      "motives": [
+        "Effacer une dette dangereuse.",
+        "Protéger quelqu'un à l'extérieur de l'institut."
+      ],
+      "alibi": {
+        "claim": "Il gérait le véhicule arrivé sans rendez-vous.",
+        "strength": "Plusieurs capteurs confirment la présence du véhicule.",
+        "weakness": "Le registre du quai a été modifié après coup."
+      },
+      "secrets": [
+        {
+          "id": "secret_dette_tomas",
+          "fact_id": "dette_tomas",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "capsule_transportable",
+          "dette_tomas",
+          "livraison_non_planifiee",
+          "registre_quai_corrige",
+          "tomas_quai",
+          "rumeur_ch7_arme",
+          "capsule_peut_etre_cachee",
+          "porte_archive_cryo"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "familier, volubile, esquive par l'humour",
+        "speech_rules": [
+          "Donne beaucoup de détails secondaires.",
+          "Minimise ses problèmes financiers."
+        ]
+      },
+      "game": {
+        "room": "quai_livraison",
+        "face": 5,
+        "body": 5,
+        "legs": 5,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    }
+  ],
+  "relationships": [],
+  "timeline": [],
+  "clues": [],
+  "map": {
+    "width": 61,
+    "rows": [
+      "2222222222222222222222222222222222222222222222222222222222222",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2              v              v              v              2",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2222222h2222222222222h222222222222222h2222222222222h222222222",
+      "2                                                           2",
+      "2                                                           2",
+      "2                                                           2",
+      "2                                                           2",
+      "2222222h2222222222222h222222222222222h2222222222222h222222222",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2              v              v              v              2",
+      "2              2              2              2              2",
+      "2              2              2              2              2",
+      "2222222h2222222222222h222222222222222h2222222222222h222222222",
+      "2                             2                             2",
+      "2                             2                             2",
+      "2                             v                             2",
+      "2                             2                             2",
+      "2                             2                             2",
+      "2222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 29,
+      "y": 9
+    },
+    "rooms": [
+      {
+        "id": "bureau_direction",
+        "name": "Bureau de la direction",
+        "at": {
+          "x": 7,
+          "y": 3
+        }
+      },
+      {
+        "id": "labo_analyse",
+        "name": "Laboratoire d’analyse génétique",
+        "at": {
+          "x": 21,
+          "y": 3
+        }
+      },
+      {
+        "id": "stockage_cryo",
+        "name": "Stockage cryogénique CH-7",
+        "at": {
+          "x": 37,
+          "y": 3
+        }
+      },
+      {
+        "id": "quarantaine",
+        "name": "Zone de quarantaine",
+        "at": {
+          "x": 51,
+          "y": 3
+        }
+      },
+      {
+        "id": "couloir_central",
+        "name": "Couloir central sécurisé",
+        "at": {
+          "x": 29,
+          "y": 9
+        }
+      },
+      {
+        "id": "securite",
+        "name": "Poste de sécurité",
+        "at": {
+          "x": 7,
+          "y": 15
+        }
+      },
+      {
+        "id": "labo_synthese",
+        "name": "Laboratoire de synthèse",
+        "at": {
+          "x": 21,
+          "y": 15
+        }
+      },
+      {
+        "id": "decontamination",
+        "name": "Décontamination",
+        "at": {
+          "x": 37,
+          "y": 15
+        }
+      },
+      {
+        "id": "serveurs",
+        "name": "Salle serveurs",
+        "at": {
+          "x": 51,
+          "y": 15
+        }
+      },
+      {
+        "id": "archives_specimens",
+        "name": "Archives des spécimens",
+        "at": {
+          "x": 15,
+          "y": 22
+        }
+      },
+      {
+        "id": "quai_livraison",
+        "name": "Quai de livraison",
+        "at": {
+          "x": 45,
+          "y": 22
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_resolution_guidance": [
+      "Choisir exactement un culprit_id parmi suspect_ids.",
+      "Tous les faits du fichier sont antérieurs au choix du coupable et doivent rester vrais.",
+      "La résolution peut rendre le mobile égoïste, politique, financier ou protecteur.",
+      "Si le responsable voulait empêcher une catastrophe, expliquer pourquoi il n'a pas utilisé une voie officielle et quelles traces son action a laissées.",
+      "Ne jamais créer un accès impossible : utiliser les badges empruntables, clés de secours, décontamination, archives, quai ou journaux incomplets déjà établis."
+    ],
+    "victim": {
+      "id": "sofia_marin",
+      "name": "Dr Sofia Marin",
+      "age": 47,
+      "role": "Directrice du programme CH-7"
+    },
+    "crime": {
+      "type": "disparition_echantillon_biologique",
+      "location": "Stockage cryogénique CH-7",
+      "time_window": {
+        "start": "21:40",
+        "end": "22:05"
+      },
+      "cause": "Une capsule CH-7 a été retirée du stockage sans autorisation."
+    },
+    "suspect_ids": [
+      "elian_varga",
+      "ines_morel",
+      "malik_chen",
+      "nora_bensaid",
+      "yara_solal",
+      "tomas_ferre"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null
+}

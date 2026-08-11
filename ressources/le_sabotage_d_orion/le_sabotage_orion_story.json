@@ -1,0 +1,794 @@
+{
+  "schema_version": "1.0",
+  "story": {
+    "id": "le_sabotage_orion",
+    "title": "Le Sabotage d’Orion",
+    "genre": [
+      "enquête",
+      "science-fiction",
+      "sabotage"
+    ],
+    "language": "fr",
+    "setting": {
+      "year": 2168,
+      "location": "Complexe de lancement Kepler, orbite lunaire",
+      "organization": "Mission coloniale Orion"
+    },
+    "premise": "À moins de trois heures du départ, le réacteur de l'Orion est volontairement rendu inutilisable. Le sabotage semble conçu pour arrêter le lancement, pas pour détruire le vaisseau — et un défaut potentiellement grave vient justement d'être découvert.",
+    "player_title": "Enquêteur de vol",
+    "central_questions": [
+      "Qui a saboté l'Orion ?",
+      "Comment le responsable a-t-il atteint la zone technique ?",
+      "Cherchait-il à faire échouer la mission ou à sauver l'équipage ?"
+    ]
+  },
+  "ai_directives": {
+    "global": [
+      "Ne jamais révéler une information que le personnage ne connaît pas.",
+      "Ne jamais modifier les faits du monde.",
+      "Ne jamais inventer une preuve décisive absente de la base de faits.",
+      "Rester dans le rôle du personnage.",
+      "Un secret can_hide=true n'est admis que si le joueur apporte un fait contradictoire ou une pression crédible.",
+      "Ne jamais supposer l'identité du responsable avant que la résolution de partie ne l'ait fixée."
+    ],
+    "default_dialogue": {
+      "max_words": 90,
+      "stream": true,
+      "allow_character_lies": true
+    }
+  },
+  "facts": {
+    "sabotage_reacteur": {
+      "text": "Un dispositif de sécurité du réacteur de l'Orion a été volontairement dérivé, rendant le lancement impossible.",
+      "truth": true,
+      "category": "incident"
+    },
+    "aucun_blesse": {
+      "text": "Le sabotage a été détecté avant l'allumage principal et n'a blessé personne.",
+      "truth": true,
+      "category": "incident"
+    },
+    "fenetre_0310_0342": {
+      "text": "La modification physique a été effectuée entre 03 h 10 et 03 h 42.",
+      "truth": true,
+      "category": "timeline"
+    },
+    "panne_capteur": {
+      "text": "Un capteur de la coursive inférieure a été placé en mode diagnostic pendant onze minutes.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "acces_reacteur": {
+      "text": "L'accès normal à la chambre du réacteur exige une autorisation d'ingénierie ou de commandement.",
+      "truth": true,
+      "category": "procedure"
+    },
+    "bypass_maintenance": {
+      "text": "Deux bypass de maintenance permettent de rejoindre la zone technique sans passer par le sas principal du réacteur.",
+      "truth": true,
+      "category": "map"
+    },
+    "defaut_microfissures": {
+      "text": "Des microfissures ont été détectées sur une pièce du circuit d'injection lors d'un test nocturne.",
+      "truth": true,
+      "category": "risk"
+    },
+    "gravite_defaut_discutee": {
+      "text": "Les ingénieurs ne s'accordent pas sur la gravité des microfissures : elles peuvent être bénignes ou devenir critiques à pleine poussée.",
+      "truth": true,
+      "category": "risk"
+    },
+    "rapport_non_transmis": {
+      "text": "Le rapport complet sur les microfissures n'avait pas encore été transmis à l'autorité de lancement.",
+      "truth": true,
+      "category": "risk"
+    },
+    "lancement_impose": {
+      "text": "La direction commerciale avait refusé de repousser le lancement sans preuve formelle de danger.",
+      "truth": true,
+      "category": "motive"
+    },
+    "outil_calibre": {
+      "text": "Le dérivation a nécessité un outil de calibration disponible à l'atelier d'ingénierie et dans le kit d'urgence du contrôle de lancement.",
+      "truth": true,
+      "category": "means"
+    },
+    "outil_manquant": {
+      "text": "Un outil de calibration manque temporairement à l'inventaire de l'atelier.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "journal_porte_efface": {
+      "text": "Une entrée du journal d'accès à la coursive inférieure a été supprimée puis partiellement restaurée.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "ordre_test_rhea": {
+      "text": "Rhea Solberg avait demandé un test supplémentaire du réacteur, refusé pour des raisons de calendrier.",
+      "truth": true,
+      "category": "motive"
+    },
+    "dette_marek": {
+      "text": "Marek Voss doit une forte somme à un sous-traitant qui perdrait le contrat si Orion partait à l'heure.",
+      "truth": true,
+      "category": "secret"
+    },
+    "message_lyra": {
+      "text": "Lyra Sen a reçu un message anonyme affirmant que le lancement tuerait l'équipage.",
+      "truth": true,
+      "category": "secret"
+    },
+    "contrat_dorian": {
+      "text": "Dorian Pike toucherait une prime importante si le lancement avait lieu avant 06 h.",
+      "truth": true,
+      "category": "motive"
+    },
+    "incident_niko": {
+      "text": "Niko Hale a déjà signalé une anomalie similaire sur un simulateur, sans être pris au sérieux.",
+      "truth": true,
+      "category": "motive"
+    },
+    "selma_acces": {
+      "text": "Selma Ortiz connaît les codes de diagnostic qui permettent de neutraliser temporairement certains capteurs.",
+      "truth": true,
+      "category": "means"
+    },
+    "marek_atelier": {
+      "text": "Marek se trouvait à l'atelier d'ingénierie au début de la fenêtre critique.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "rhea_reacteur": {
+      "text": "Rhea a inspecté la chambre du réacteur peu avant 03 h 10.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "lyra_comms": {
+      "text": "Lyra était en navigation-communications et a quitté son poste pendant environ huit minutes.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "dorian_briefing": {
+      "text": "Dorian a quitté la salle de briefing pour un appel privé pendant la fenêtre critique.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "niko_bypass": {
+      "text": "Niko connaît très bien le bypass ouest pour l'avoir utilisé lors d'exercices d'évacuation.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "selma_diagnostic": {
+      "text": "Selma a lancé plusieurs diagnostics de sécurité pendant la fenêtre critique.",
+      "truth": true,
+      "category": "opportunity"
+    },
+    "camera_baie": {
+      "text": "La baie d'observation montre une silhouette entrer dans la coursive supérieure, mais l'angle ne permet pas de l'identifier.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "gants_residu": {
+      "text": "Des gants portant un résidu de lubrifiant du réacteur ont été trouvés dans une poubelle de la soute.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "lubrifiant_commun": {
+      "text": "Le même lubrifiant est utilisé à l'atelier, au réacteur et sur certains mécanismes de soute.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "alarme_support_vie": {
+      "text": "Une brève alarme du support-vie a attiré deux techniciens loin de la coursive inférieure à 03 h 27.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "alarme_non_dangereuse": {
+      "text": "L'alarme du support-vie était sans danger et pouvait être déclenchée depuis plusieurs consoles techniques.",
+      "truth": true,
+      "category": "means"
+    },
+    "rumeur_compagnie_cache_defaut": {
+      "text": "Niko est convaincu que la compagnie connaissait déjà les microfissures avant le test nocturne.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "rumeur_activiste_lyra": {
+      "text": "Dorian soupçonne Lyra d'appartenir à un groupe anti-colonisation, sans disposer de preuve.",
+      "truth": false,
+      "category": "rumor"
+    },
+    "piece_sabotage_reversible": {
+      "text": "La dérivation est réversible en moins d'une heure si l'équipe sait exactement quoi réparer.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "sabotage_visait_retard": {
+      "text": "La manière dont le système a été dérivé semble conçue pour forcer un arrêt de lancement plutôt que pour détruire le réacteur.",
+      "truth": true,
+      "category": "evidence"
+    },
+    "commande_distance_impossible": {
+      "text": "La modification finale exigeait une intervention physique dans la zone technique ; elle ne pouvait pas être réalisée uniquement à distance.",
+      "truth": true,
+      "category": "constraint"
+    },
+    "passerelle_acces": {
+      "text": "La passerelle d'observation rejoint la coursive supérieure sans passer par le contrôle de lancement.",
+      "truth": true,
+      "category": "map"
+    }
+  },
+  "characters": [
+    {
+      "id": "rhea_solberg",
+      "name": "Rhea Solberg",
+      "role": "Ingénieure propulsion",
+      "identity": {
+        "age": 42,
+        "type": "human"
+      },
+      "personality": [
+        "exigeante",
+        "scientifique"
+      ],
+      "public_description": "Responsable des essais moteur, elle avait demandé un report après l'apparition des microfissures.",
+      "position_in_case": "Elle inspectait le réacteur avant la fenêtre critique puis affirme être remontée en salle de contrôle.",
+      "motives": [
+        "Empêcher un lancement qu'elle juge dangereux.",
+        "Éviter que son équipe soit accusée d'avoir laissé passer un défaut."
+      ],
+      "alibi": {
+        "claim": "Elle était au contrôle de lancement après son inspection.",
+        "strength": "Des collègues l'ont vue y revenir.",
+        "weakness": "Le trajet laisse quelques minutes non couvertes."
+      },
+      "secrets": [
+        {
+          "id": "secret_test_rhea",
+          "fact_id": "ordre_test_rhea",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "sabotage_reacteur",
+          "fenetre_0310_0342",
+          "acces_reacteur",
+          "defaut_microfissures",
+          "gravite_defaut_discutee",
+          "rapport_non_transmis",
+          "ordre_test_rhea",
+          "rhea_reacteur",
+          "piece_sabotage_reversible",
+          "sabotage_visait_retard"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "précis, impatient, technique",
+        "speech_rules": [
+          "Explique les risques sans dramatiser.",
+          "S'irrite quand on confond prudence et panique."
+        ]
+      },
+      "game": {
+        "room": "reacteur",
+        "face": 0,
+        "body": 0,
+        "legs": 0,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "marek_voss",
+      "name": "Marek Voss",
+      "role": "Chef mécanicien",
+      "identity": {
+        "age": 38,
+        "type": "human"
+      },
+      "personality": [
+        "débrouillard",
+        "susceptible"
+      ],
+      "public_description": "Il dirige l'atelier et connaît tous les accès techniques de l'Orion.",
+      "position_in_case": "Il affirme avoir réparé un actionneur à l'atelier pendant la plupart de la fenêtre critique.",
+      "motives": [
+        "Protéger un contrat ou une dette personnelle.",
+        "Retarder un lancement pour obtenir du temps de réparation."
+      ],
+      "alibi": {
+        "claim": "Il travaillait à l'atelier.",
+        "strength": "Une réparation a bien été effectuée.",
+        "weakness": "Il pouvait s'absenter sans interrompre la réparation automatique."
+      },
+      "secrets": [
+        {
+          "id": "secret_dette_marek",
+          "fact_id": "dette_marek",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "outil_calibre",
+          "outil_manquant",
+          "dette_marek",
+          "marek_atelier",
+          "lubrifiant_commun",
+          "bypass_maintenance",
+          "gants_residu"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "familier, technique, offensif",
+        "speech_rules": [
+          "Répond avec des termes de mécanique.",
+          "Cache ses dettes et attaque la compétence des autres."
+        ]
+      },
+      "game": {
+        "room": "atelier_ingenierie",
+        "face": 1,
+        "body": 1,
+        "legs": 1,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "lyra_sen",
+      "name": "Lyra Sen",
+      "role": "Pilote de mission",
+      "identity": {
+        "age": 31,
+        "type": "human"
+      },
+      "personality": [
+        "lucide",
+        "indépendante"
+      ],
+      "public_description": "Pilote principale de l'Orion, directement exposée à tout défaut au décollage.",
+      "position_in_case": "Elle travaillait en navigation-communications mais a quitté son poste brièvement.",
+      "motives": [
+        "Empêcher un lancement qu'elle croit mortel.",
+        "Forcer la direction à écouter les avertissements de l'équipage."
+      ],
+      "alibi": {
+        "claim": "Elle recalculait la trajectoire de lancement.",
+        "strength": "La console contient ses calculs.",
+        "weakness": "Huit minutes de ses déplacements ne sont pas attestées."
+      },
+      "secrets": [
+        {
+          "id": "secret_message_lyra",
+          "fact_id": "message_lyra",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "defaut_microfissures",
+          "gravite_defaut_discutee",
+          "message_lyra",
+          "lyra_comms",
+          "camera_baie",
+          "rumeur_activiste_lyra",
+          "passerelle_acces"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "calme, concis, déterminé",
+        "speech_rules": [
+          "Parle comme une pilote qui évalue des risques.",
+          "Cache le message anonyme par peur qu'on le prenne pour une manipulation."
+        ]
+      },
+      "game": {
+        "room": "navigation_comms",
+        "face": 2,
+        "body": 2,
+        "legs": 2,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "dorian_pike",
+      "name": "Dorian Pike",
+      "role": "Directeur de lancement",
+      "identity": {
+        "age": 49,
+        "type": "human"
+      },
+      "personality": [
+        "charismatique",
+        "pressé"
+      ],
+      "public_description": "Cadre de la compagnie chargé de faire partir Orion à l'heure malgré les retards du programme.",
+      "position_in_case": "Il présidait le briefing puis s'est absenté pour un appel confidentiel.",
+      "motives": [
+        "Protéger le calendrier commercial.",
+        "Créer un incident contrôlé permettant de renégocier des responsabilités contractuelles."
+      ],
+      "alibi": {
+        "claim": "Il était au briefing puis au téléphone.",
+        "strength": "La réunion et l'appel sont authentiques.",
+        "weakness": "L'appel a été pris depuis une zone proche de la coursive supérieure."
+      },
+      "secrets": [
+        {
+          "id": "secret_prime_dorian",
+          "fact_id": "contrat_dorian",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "lancement_impose",
+          "contrat_dorian",
+          "dorian_briefing",
+          "rapport_non_transmis",
+          "passerelle_acces",
+          "camera_baie",
+          "sabotage_visait_retard"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "assuré, corporate, impatient",
+        "speech_rules": [
+          "Ramène les questions aux responsabilités contractuelles.",
+          "Minimise la gravité des microfissures."
+        ]
+      },
+      "game": {
+        "room": "salle_briefing",
+        "face": 3,
+        "body": 3,
+        "legs": 3,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "niko_hale",
+      "name": "Niko Hale",
+      "role": "Officier sécurité de vol",
+      "identity": {
+        "age": 35,
+        "type": "human"
+      },
+      "personality": [
+        "méfiant",
+        "tenace"
+      ],
+      "public_description": "Responsable de la sécurité opérationnelle, souvent en conflit avec la direction commerciale.",
+      "position_in_case": "Il contrôlait les accès et dit avoir inspecté le bypass ouest après une alerte.",
+      "motives": [
+        "Empêcher le lancement tant qu'un risque n'est pas expliqué.",
+        "Prouver que les procédures de la compagnie sont insuffisantes."
+      ],
+      "alibi": {
+        "claim": "Il inspectait le bypass ouest et le poste de sécurité.",
+        "strength": "Son badge apparaît au poste de sécurité.",
+        "weakness": "Le bypass lui permet de rejoindre rapidement la zone du réacteur."
+      },
+      "secrets": [
+        {
+          "id": "secret_incident_niko",
+          "fact_id": "incident_niko",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "acces_reacteur",
+          "bypass_maintenance",
+          "incident_niko",
+          "niko_bypass",
+          "journal_porte_efface",
+          "rumeur_compagnie_cache_defaut",
+          "commande_distance_impossible",
+          "aucun_blesse"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "grave, procédurier, insistant",
+        "speech_rules": [
+          "Cite volontiers les procédures.",
+          "Reconnaît difficilement avoir contourné une règle même pour la sécurité."
+        ]
+      },
+      "game": {
+        "room": "securite_orion",
+        "face": 4,
+        "body": 4,
+        "legs": 4,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    },
+    {
+      "id": "selma_ortiz",
+      "name": "Selma Ortiz",
+      "role": "Ingénieure systèmes et support-vie",
+      "identity": {
+        "age": 40,
+        "type": "human"
+      },
+      "personality": [
+        "posée",
+        "analytique"
+      ],
+      "public_description": "Elle supervise les diagnostics automatiques, les capteurs et une partie du support-vie.",
+      "position_in_case": "Elle lançait des diagnostics quand une alarme secondaire a détourné plusieurs techniciens.",
+      "motives": [
+        "Empêcher une défaillance systémique.",
+        "Cacher une erreur de configuration qu'elle pourrait avoir introduite."
+      ],
+      "alibi": {
+        "claim": "Elle gérait les diagnostics du support-vie.",
+        "strength": "Les journaux montrent ses commandes.",
+        "weakness": "Les mêmes codes permettent de masquer brièvement certains capteurs."
+      },
+      "secrets": [
+        {
+          "id": "secret_codes_selma",
+          "fact_id": "selma_acces",
+          "can_hide": true,
+          "reveal_conditions": []
+        }
+      ],
+      "knowledge": {
+        "known_fact_ids": [
+          "panne_capteur",
+          "selma_acces",
+          "selma_diagnostic",
+          "alarme_support_vie",
+          "alarme_non_dangereuse",
+          "journal_porte_efface",
+          "commande_distance_impossible"
+        ],
+        "unknown_fact_ids": []
+      },
+      "dialogue": {
+        "tone": "mesuré, logique, peu émotionnel",
+        "speech_rules": [
+          "Sépare toujours cause, corrélation et hypothèse.",
+          "Évite d'admettre combien de systèmes ses codes peuvent affecter."
+        ]
+      },
+      "game": {
+        "room": "support_vie",
+        "face": 5,
+        "body": 5,
+        "legs": 5,
+        "fixed_face": false,
+        "can_move": true,
+        "can_change_room": false
+      }
+    }
+  ],
+  "relationships": [],
+  "timeline": [],
+  "clues": [],
+  "map": {
+    "width": 63,
+    "rows": [
+      "222222222222222222222222222222222222222222222222222222222222222",
+      "2               2               2              2              2",
+      "2               2               2              2              2",
+      "2               2               2              2              2",
+      "2               v               v              v              2",
+      "2               2               2              2              2",
+      "2               2               2              2              2",
+      "2222222h222222222222222h222222222222222h2222222222222h222222222",
+      "2                                                             2",
+      "2                                                             2",
+      "2                                                             2",
+      "222222222h222222222222222222222h2222222222222222222h22222222222",
+      "2                    2                    2                   2",
+      "2                    2                    2                   2",
+      "2                    v                    v                   2",
+      "2                    2                    2                   2",
+      "2                    2                    2                   2",
+      "222222222h222222222222222222222h2222222222222222222h22222222222",
+      "2                                                             2",
+      "2                                                             2",
+      "2                                                             2",
+      "22222h2222222222222h22222222222h22222222222h22222222222h2222222",
+      "2            2            2           2           2           2",
+      "2            2            2           2           2           2",
+      "2            2            2           2           2           2",
+      "2            v            v           v           v           2",
+      "2            2            2           2           2           2",
+      "2            2            2           2           2           2",
+      "222222222222222222222222222222222222222222222222222222222222222"
+    ],
+    "player_start": {
+      "x": 31,
+      "y": 9
+    },
+    "rooms": [
+      {
+        "id": "controle_lancement",
+        "name": "Contrôle de lancement",
+        "at": {
+          "x": 7,
+          "y": 3
+        }
+      },
+      {
+        "id": "navigation_comms",
+        "name": "Navigation et communications",
+        "at": {
+          "x": 23,
+          "y": 3
+        }
+      },
+      {
+        "id": "salle_briefing",
+        "name": "Salle de briefing mission",
+        "at": {
+          "x": 39,
+          "y": 3
+        }
+      },
+      {
+        "id": "baie_observation",
+        "name": "Baie d’observation et passerelle",
+        "at": {
+          "x": 53,
+          "y": 3
+        }
+      },
+      {
+        "id": "coursive_superieure",
+        "name": "Coursive supérieure",
+        "at": {
+          "x": 31,
+          "y": 9
+        }
+      },
+      {
+        "id": "puits_technique",
+        "name": "Puits technique du réacteur",
+        "at": {
+          "x": 31,
+          "y": 14
+        }
+      },
+      {
+        "id": "coursive_inferieure",
+        "name": "Coursive inférieure",
+        "at": {
+          "x": 31,
+          "y": 19
+        }
+      },
+      {
+        "id": "securite_orion",
+        "name": "Poste de sécurité",
+        "at": {
+          "x": 5,
+          "y": 24
+        }
+      },
+      {
+        "id": "atelier_ingenierie",
+        "name": "Atelier d’ingénierie",
+        "at": {
+          "x": 19,
+          "y": 24
+        }
+      },
+      {
+        "id": "reacteur",
+        "name": "Chambre du réacteur",
+        "at": {
+          "x": 31,
+          "y": 24
+        }
+      },
+      {
+        "id": "support_vie",
+        "name": "Support-vie",
+        "at": {
+          "x": 43,
+          "y": 24
+        }
+      },
+      {
+        "id": "soute",
+        "name": "Soute et fret",
+        "at": {
+          "x": 55,
+          "y": 24
+        }
+      },
+      {
+        "id": "bypass_ouest",
+        "name": "Bypass de maintenance ouest",
+        "at": {
+          "x": 9,
+          "y": 14
+        }
+      },
+      {
+        "id": "bypass_est",
+        "name": "Bypass de maintenance est",
+        "at": {
+          "x": 51,
+          "y": 14
+        }
+      }
+    ]
+  },
+  "mystery": {
+    "_resolution_guidance": [
+      "Choisir exactement un culprit_id parmi suspect_ids.",
+      "La résolution doit respecter que le sabotage était physique, réversible et principalement destiné à empêcher le lancement.",
+      "Le mobile peut être protecteur, financier, professionnel ou politique.",
+      "Si le coupable voulait sauver l'équipage, relier sa décision au défaut, au rapport non transmis et au refus de reporter le lancement.",
+      "Si le coupable avait un mobile égoïste, expliquer pourquoi il a choisi un sabotage non destructeur plutôt qu'une attaque dangereuse.",
+      "Utiliser les deux coursives, le puits technique et les bypass comme itinéraires possibles selon le suspect."
+    ],
+    "victim": {
+      "id": "imani_rhee",
+      "name": "Commandante Imani Rhee",
+      "age": 45,
+      "role": "Commandante de la mission Orion"
+    },
+    "crime": {
+      "type": "sabotage_de_lancement",
+      "location": "Chambre du réacteur de l’Orion",
+      "time_window": {
+        "start": "03:10",
+        "end": "03:42"
+      },
+      "cause": "Un circuit de sécurité du réacteur a été dérivé physiquement, forçant l'annulation du lancement."
+    },
+    "suspect_ids": [
+      "rhea_solberg",
+      "marek_voss",
+      "lyra_sen",
+      "dorian_pike",
+      "niko_hale",
+      "selma_ortiz"
+    ],
+    "solution": {
+      "mode": "author_defined",
+      "culprit_id": null,
+      "explanation": null,
+      "locked_until_end": true
+    }
+  },
+  "runtime_template": {
+    "session_id": null,
+    "player": {
+      "id": "player",
+      "name": null,
+      "known_fact_ids": [],
+      "discovered_clue_ids": []
+    },
+    "world_flags": {},
+    "npc_state": {}
+  },
+  "memory_config": null
+}
