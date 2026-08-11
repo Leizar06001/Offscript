@@ -3,6 +3,9 @@ saves/
 obj/
 ressources/pyr_prototype_impossible
 
+# Fichiers de service macOS
+.DS_Store
+
 # Prerequisites
 *.d
 
