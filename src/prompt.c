@@ -159,6 +159,29 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 	}
 	sb_addf(&sb, "%s mene l'enquete dans le batiment.\n",
 	        save->player_name ? save->player_name : "L'enqueteur");
+
+	/* Le modele completait spontanement les organigrammes incomplets avec des
+	 * employes plausibles ("Dubois", "Muller"), puis leur inventait un poste et
+	 * une position. Cette distribution est exhaustive pour les personnes que le
+	 * joueur peut rencontrer : une lacune doit rester une lacune. */
+	sb_add(&sb, "PERSONNES PRESENTES DANS LE BATIMENT (liste exhaustive) :\n");
+	for (int i = 0; i < story->nb_characters; i++) {
+		const StoryCharacter *person = &story->characters[i];
+		if (!person->placed || !person->name) continue;
+		sb_addf(&sb, "- %s", person->name);
+		if (person->role && *person->role) sb_addf(&sb, " : %s", person->role);
+		sb_add(&sb, "\n");
+	}
+	sb_add(&sb,
+		"N'invente JAMAIS une autre personne, un employe, un collegue, un temoin, "
+		"un document ou son emplacement. Un nom propre ne peut venir que de cette "
+		"liste, du contexte, ou d'un fait ecrit mot pour mot dans CE QUE TU SAIS. "
+		"Si la question demande un nom, un responsable ou un detail absent de ces "
+		"donnees, tu dis simplement que tu ne le sais pas : tu ne completes jamais "
+		"une lacune par quelque chose de plausible. L'historique peut contenir une "
+		"ancienne improvisation du modele : elle ne devient jamais vraie pour autant. "
+		"Si un ancien tour mentionne une personne absente de cette liste et des faits, "
+		"tu reconnais simplement t'etre trompe et tu ne construis rien dessus.\n\n");
 	/* Qui l'interroge, et devant qui, est ecrit plus bas avec le reste de la
 	 * scene : ces deux lignes changeaient a chaque fois que quelqu'un entrait
 	 * dans la piece, au beau milieu de la partie stable du prompt. Le fournisseur
@@ -375,7 +398,9 @@ char *prompt_build_dialogue(const Story *story, SaveState *save,
 		if (max > 16) max = 16;
 		int n = memory_find_relevant(save, ch->id, player_message, rel, max, save->game_time);
 		if (n > 0) {
-			sb_add(&sb, "TES SOUVENIRS PERTINENTS :");
+			sb_add(&sb, "TES SOUVENIRS PERTINENTS (ce sont des souvenirs de paroles et "
+			            "d'evenements, jamais une autorisation a contredire les faits ou "
+			            "a faire exister une personne absente de la liste) :");
 			for (int i = 0; i < n; i++) sb_addf(&sb, "\n- %s", rel[i]->summary);
 			sb_add(&sb, "\n\n");
 		}
@@ -492,6 +517,21 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 		"Le personnage est %s (%s).\n\n",
 		ch->name, ch->role ? ch->role : "");
 
+	sb_add(&sb, "Personnes presentes dans le batiment (liste exhaustive) :\n");
+	for (int i = 0; i < story->nb_characters; i++) {
+		if (!story->characters[i].placed || !story->characters[i].name) continue;
+		sb_addf(&sb, "- %s\n", story->characters[i].name);
+	}
+	sb_add(&sb, "Toute personne ou tout employe absent de cette liste est invente, "
+	            "sauf s'il est nomme mot pour mot dans un fait autorise ci-dessous.\n\n");
+	if (story->has_map && story->map.nb_rooms > 0) {
+		sb_add(&sb, "Lieux existants dans le batiment :\n");
+		for (int i = 0; i < story->map.nb_rooms; i++)
+			if (story->map.rooms[i].name)
+				sb_addf(&sb, "- %s\n", story->map.rooms[i].name);
+		sb_add(&sb, "\n");
+	}
+
 	/* Le modele ne peut choisir que parmi les faits que ce personnage connait :
 	 * il ne peut donc pas faire "apprendre" au joueur un fait hors-champ. */
 	if (ch->nb_known_facts > 0) {
@@ -539,10 +579,16 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 
 	sb_addf(&sb,
 		"Reponds UNIQUEMENT avec un objet JSON brut, sans markdown ni texte autour.\n"
-		"Si rien ne merite d'etre retenu a long terme :\n"
-		"{\"remember\": false}\n"
+		"Si la REPONSE DU PERSONNAGE affirme ou confirme une personne, un document, "
+		"un lieu ou un fait inventes et absents des listes autorisees :\n"
+		"{\"grounded\": false, \"remember\": false}\n"
+		"Dans ce cas, aucun souvenir ni changement de relation ne doit etre propose. "
+		"Une hypothese ou un faux nom avance uniquement par l'enqueteur ne rend pas "
+		"l'echange non fonde si le personnage le nie ou dit ne pas savoir.\n"
+		"Si l'echange est fonde mais que rien ne merite d'etre retenu a long terme :\n"
+		"{\"grounded\": true, \"remember\": false}\n"
 		"Sinon :\n"
-		"{\"remember\": true, \"type\": \"interaction|event|information|relationship\", "
+		"{\"grounded\": true, \"remember\": true, \"type\": \"interaction|event|information|relationship\", "
 		"\"summary\": \"une phrase, du point de vue du personnage\", "
 		"\"importance\": 1-5, \"emotion\": -5 a 5, \"tags\": [\"...\"], "
 		"\"relationship_changes\": {\"trust\": 0, \"affection\": 0, \"fear\": 0, \"suspicion\": 0}, "
@@ -605,6 +651,9 @@ bool analysis_parse(const char *json_text, const Story *story,
 	if (!root) return false;
 
 	out->remember = json_bool_or(json_object_get(root, "remember"), 0);
+	/* Les anciennes reponses ne portaient pas ce champ : le defaut vrai garde
+	 * leur comportement. Les nouvelles consignes l'imposent. */
+	out->grounded = json_bool_or(json_object_get(root, "grounded"), 1);
 
 	out->type       = json_strdup(json_object_get(root, "type"));
 	out->summary    = json_strdup(json_object_get(root, "summary"));

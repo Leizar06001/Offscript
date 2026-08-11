@@ -33,6 +33,14 @@ typedef struct {
 	char *move;     /* NULL pour un tour user ou un personnage immobile */
 } ChatMsg;
 
+/* Historique d'affichage complet, distinct de ChatMsg/recent. `npc_id` est
+ * stable entre les lancements, contrairement a l'indice du tableau runtime. */
+typedef struct {
+	int   kind;       /* CHAT_PLAYER / CHAT_NPC / CHAT_ACTION / CHAT_SYSTEM */
+	char *npc_id;     /* NULL pour le joueur et le moteur */
+	char *text;
+} SavedChatEntry;
+
 typedef struct {
 	char  *id;      /* mem_001... */
 	char  *type;    /* interaction | event | information | relationship */
@@ -118,6 +126,9 @@ typedef struct {
 	long   api_prompt_tokens;
 	long   api_completion_tokens;
 	long   api_calls;
+
+	SavedChatEntry *chat_log;
+	int             nb_chat_log;
 
 	char **known_fact_ids;      /* ce que le JOUEUR a appris */
 	int    nb_known_facts;

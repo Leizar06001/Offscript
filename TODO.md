@@ -2,7 +2,8 @@
 
 # To do
 
-- Ajouter un parametre au lancement de l'histoire pour choisir la difficulté
+- Empecher les NPC de s'arreter devant des portes
+- Il faudrait que les indices ou notes au journal soient détectés dès qu'ils sont donnés au lieu d'attendre l'appel au modele
 - (facultatif) Ecarter au tirage un coupable dont rien n'est atteignable sans lui
     Plus necessaire sur Projet Echo, ou les 5 suspects passent le test. Ce serait un garde-fou pour les
     histoires mal ecrites, en plus du message d'avertissement.

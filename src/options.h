@@ -45,6 +45,12 @@ typedef struct {
 	 * bouge, le joueur doit pouvoir la corriger sans recompiler. */
 	double price_in_per_m;
 	double price_out_per_m;
+
+	/* Deux reglages independants : le journal JSONL peut enregistrer sans
+	 * polluer l'ecran, et les alertes courtes peuvent aider en jeu sans
+	 * conserver les prompts et les secrets du scenario sur disque. */
+	bool diagnostic_file_logs;
+	bool diagnostic_ingame_logs;
 } Options;
 
 /* Chemin du fichier de reglages. */

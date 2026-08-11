@@ -21,32 +21,68 @@ int min(int a, int b){
 	return (a < b ? a : b);
 }
 
-/* Comme pinfo, mais dans une couleur donnee : les actions d'un personnage
- * s'affichent dans la sienne. */
-void pinfo_c(Game *game, int pair, const char *fmt, ...){
-	va_list ap;
+static void info_time(WINDOW *win) {
+	time_t now = time(NULL);
+	struct tm local;
+	char stamp[16];
+	localtime_r(&now, &local);
+	strftime(stamp, sizeof(stamp), "%H:%M:%S", &local);
+	wattron(win, COLOR_PAIR(PAIR_HEADING));
+	wprintw(win, "[%s] ", stamp);
+	wattroff(win, COLOR_PAIR(PAIR_HEADING));
+}
+
+static void pinfo_v(Game *game, int pair, bool colored,
+		const char *fmt, va_list ap) {
+	if (!game || !game->display.info) return;
 
 	pthread_mutex_lock(&game->display.m_display_update);
-	wattron(game->display.info, COLOR_PAIR(pair));
-	va_start(ap, fmt);
+	info_time(game->display.info);
+	if (colored) wattron(game->display.info, COLOR_PAIR(pair));
 	vw_printw(game->display.info, fmt, ap);
-	va_end(ap);
-	wattroff(game->display.info, COLOR_PAIR(pair));
-	pthread_mutex_unlock(&game->display.m_display_update);
-
+	if (colored) wattroff(game->display.info, COLOR_PAIR(pair));
 	wrefresh(game->display.info);
+	pthread_mutex_unlock(&game->display.m_display_update);
+}
+
+/* Comme pinfo, mais dans une couleur donnee. */
+void pinfo_c(Game *game, int pair, const char *fmt, ...){
+	va_list ap;
+	va_start(ap, fmt);
+	pinfo_v(game, pair, true, fmt, ap);
+	va_end(ap);
 }
 
 void pinfo(Game *game, const char *fmt, ...){
 	va_list ap;
-
-	pthread_mutex_lock(&game->display.m_display_update);
 	va_start(ap, fmt);
-    vw_printw(game->display.info, fmt, ap); // write to ncurses window
-    va_end(ap);
-	pthread_mutex_unlock(&game->display.m_display_update);
+	pinfo_v(game, 0, false, fmt, ap);
+	va_end(ap);
+}
 
-	wrefresh(game->display.info); 
+void pdiag(Game *game, int pair, const char *fmt, ...) {
+	if (!game || !game->options.diagnostic_ingame_logs || !game->display.info) return;
+
+	char text[1024];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(text, sizeof(text), fmt, ap);
+	va_end(ap);
+	for (size_t i = 0; text[i]; i++)
+		if (text[i] == '\n' || text[i] == '\r' || text[i] == '\t') text[i] = ' ';
+
+	/* [HH:MM:SS] + "[diag] " occupent 18 colonnes. Les messages emis sont
+	 * courts et majoritairement ASCII ; cette borne empeche ncurses de les
+	 * replier sur une seconde ligne dans les petits terminaux. */
+	int max = getmaxx(game->display.info) - 19;
+	if (max < 8) max = 8;
+	if ((int)strlen(text) > max) {
+		int cut = max - 3;
+		while (cut > 0 && (((unsigned char)text[cut] & 0xC0) == 0x80)) cut--;
+		text[cut] = '\0';
+		strncat(text, "...", sizeof(text) - strlen(text) - 1);
+	}
+	pinfo_c(game, pair, "[diag] %s\n", text);
 }
 
 

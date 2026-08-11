@@ -89,7 +89,15 @@ void npc_movement_update(struct s_game *game);
 /* Instruction de deplacement proposee par le modele dans sa reponse :
  * "reste", "approche", "recule", "piece:<id>", "rejoint:<id>". Le moteur
  * valide tout et ignore ce qui n'a pas de sens. */
-void npc_apply_move_order(struct s_game *game, int idx, const char *order);
+typedef enum {
+	NPC_MOVE_NOT_REQUESTED,
+	NPC_MOVE_NO_OP,
+	NPC_MOVE_ACCEPTED,
+	NPC_MOVE_REJECTED
+} NpcMoveResult;
+
+NpcMoveResult npc_apply_move_order(struct s_game *game, int idx, const char *order);
+const char   *npc_move_result_name(NpcMoveResult result);
 
 /* What to call the character on screen: the real name once the player has
  * learned it, "un inconnu" until then. */

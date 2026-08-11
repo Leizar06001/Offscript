@@ -22,7 +22,7 @@ NAME := Offscript
 OBJDIR := obj
 SRCS_FILES := main.c json_min.c dialogue.c deepseek_client.c utils.c inputs.c npc.c display.c \
 				map.c listes.c globals.c textutil.c story.c memory.c prompt.c \
-				journal.c menu.c apikey.c options.c
+				journal.c menu.c apikey.c options.c diag.c
 
 SRCS := $(addprefix src/,$(SRCS_FILES))
 OBJS := $(patsubst src/%.c,$(OBJDIR)/%.o,$(SRCS))

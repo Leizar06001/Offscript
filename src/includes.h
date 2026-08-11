@@ -136,8 +136,6 @@ typedef struct {
 	char *text;
 } ChatEntry;
 
-#define CHAT_LOG_MAX 200
-
 typedef struct {
 	char 		text_buffer[CHAT_INPUT_MAX]; // Tampon pour les messages
 	size_t 		text_size; // Taille du tampon de texte
@@ -153,8 +151,9 @@ typedef struct {
 	/* Le fil est conserve puis redessine entierement a chaque changement :
 	 * une fenetre ncurses ou l'on ecrit au fil de l'eau ne peut ni defiler
 	 * vers le haut ni voir son passe corrige. */
-	ChatEntry	log[CHAT_LOG_MAX];
+	ChatEntry	*log;
 	int			nb_log;
+	int			cap_log;
 	int			scroll;    // nb de lignes remontees depuis le bas (0 = en bas)
 	int			live;      // entree en cours de reception, -1 sinon
 	int			dirty;
@@ -247,6 +246,9 @@ double distance(int x1, int y1, int x2, int y2);
 int min(int a, int b);
 void pinfo(Game *game, const char *fmt, ...);
 void pinfo_c(Game *game, int pair, const char *fmt, ...);
+/* Message court reserve aux alertes diagnostiques activees dans les options.
+ * N'affiche rien hors de ce mode et garantit une seule ligne dans le bandeau. */
+void pdiag(Game *game, int pair, const char *fmt, ...);
 /* Couleur d'un personnage, la meme dans le chat, l'aide et le carnet. */
 int  npc_color(int npc_index);
 /* Couleur d'une valeur de relation : positive_axis = 1 pour confiance et
@@ -285,6 +287,8 @@ void chat_free(Game *game);
 /* Ajout d'une entree au fil. Le texte est copie. */
 void chat_add(Game *game, int kind, int npc_index, const char *text);
 void chat_addf(Game *game, int kind, int npc_index, const char *fmt, ...);
+void chat_sync_to_save(Game *game);
+void chat_restore_from_save(Game *game);
 
 /* Redessine le fil si quelque chose a change. Renvoie 1 s'il a redessine. */
 int  chat_render(Game *game);
@@ -302,6 +306,7 @@ void chat_stream_end(Game *game);
 #define NPC_TALK_SENT	1
 #define NPC_TALK_NOBODY	0
 #define NPC_TALK_BUSY	-1
+#define NPC_TALK_ERROR	-2
 int npc_talk_send(Game *game, const char *text);
 void npc_talk_update(Game *game);
 

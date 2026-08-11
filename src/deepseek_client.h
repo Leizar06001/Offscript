@@ -90,7 +90,7 @@ void deepseek_set_reasoning(const char *level);
 
 /* 0 = still pending, 1 = done (fills *out, frees req), -1 = failed (frees
  * req). Never blocks. */
-int deepseek_poll(DeepseekRequest *req, DialogueReply *out);
+int deepseek_poll(DeepseekRequest *req, DialogueReply *out, bool *out_structured);
 
 /* Same contract, for a deepseek_ask_raw request: on success *out_text is a
  * malloc'd copy of the model's answer, which the caller frees. */

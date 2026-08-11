@@ -109,6 +109,8 @@ void options_defaults(Options *o) {
 	snprintf(o->reasoning, sizeof(o->reasoning), "high");
 	o->price_in_per_m  = 0.28;
 	o->price_out_per_m = 0.42;
+	o->diagnostic_file_logs   = false;
+	o->diagnostic_ingame_logs = false;
 }
 
 int options_action_for_key(const Options *o, int ch, bool is_function_key) {
@@ -228,6 +230,12 @@ void options_load(Options *o) {
 	o->price_in_per_m  = json_number_or(json_object_get(prices, "input"),  o->price_in_per_m);
 	o->price_out_per_m = json_number_or(json_object_get(prices, "output"), o->price_out_per_m);
 
+	JsonValue *diagnostics = json_object_get(root, "diagnostics");
+	o->diagnostic_file_logs = json_bool_or(
+		json_object_get(diagnostics, "file_logs"), o->diagnostic_file_logs);
+	o->diagnostic_ingame_logs = json_bool_or(
+		json_object_get(diagnostics, "in_game_logs"), o->diagnostic_ingame_logs);
+
 	json_free(root);
 }
 
@@ -243,8 +251,11 @@ bool options_save(const Options *o) {
 	}
 	sb_add(&sb, "  },\n");
 	sb_addf(&sb, "  \"reasoning\": \"%s\",\n", o->reasoning);
-	sb_addf(&sb, "  \"prices_per_million\": { \"input\": %.6f, \"output\": %.6f }\n}\n",
+	sb_addf(&sb, "  \"prices_per_million\": { \"input\": %.6f, \"output\": %.6f },\n",
 	        o->price_in_per_m, o->price_out_per_m);
+	sb_addf(&sb, "  \"diagnostics\": { \"file_logs\": %s, \"in_game_logs\": %s }\n}\n",
+	        o->diagnostic_file_logs ? "true" : "false",
+	        o->diagnostic_ingame_logs ? "true" : "false");
 
 	char tmp[600];
 	snprintf(tmp, sizeof(tmp), "%s.tmp", options_path());

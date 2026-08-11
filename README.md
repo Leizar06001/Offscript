@@ -75,6 +75,20 @@ make
 ./Offscript
 ```
 
+To investigate prompt or game-mechanics problems, open **Options → Diagnostic**
+and enable the JSONL journal. The setting persists across restarts. It writes a
+timestamped file under `diagnostics/`. Each line records one
+event: full model requests and responses, parsed dialogue, accepted or rejected
+movement effects, memory-analysis results, relationship changes, discoveries,
+and session-state snapshots. The directory and files are private to the current
+user (`0700`/`0600`) and ignored by Git. They still contain complete
+conversations, story solutions, character secrets, and prompts, so review a
+file before sharing it. API keys are never recorded.
+
+The same submenu has a separate setting for short in-game diagnostic alerts.
+Those alerts only appear when something went wrong and do not require the JSONL
+journal to be enabled.
+
 Other build targets:
 
 ```sh
@@ -157,10 +171,13 @@ NPCs may wander inside their assigned room. Characters with
 their response calls for it. Paths are calculated by the engine and avoid the
 player and other characters.
 
-Conversation history, long-term memories, relationships, discovered facts and
-clues, identities, positions, appearances, and movement permissions are kept
-in the save. See [Memory_instructions.md](ressources/Memory_instructions.md)
-for the memory design.
+The complete displayed conversation—including actions and system messages—is
+kept in the save and restored when the game resumes. This is separate from the
+small `recent_messages` window sent back to the model, so a long visible chat
+does not enlarge prompts or their cost. Long-term memories, relationships,
+discovered facts and clues, identities, positions, appearances, and movement
+permissions are also persisted. See
+[Memory_instructions.md](ressources/Memory_instructions.md) for the memory design.
 
 ## Models and cost settings
 

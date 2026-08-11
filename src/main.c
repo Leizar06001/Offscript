@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "diag.h"
 
 /* Le modele rapide sert a tout ce qui est frequent : chaque replique, chaque
  * analyse memoire. Le modele de conception n'est appele qu'une fois par
@@ -79,6 +80,7 @@ int init_struct(Game *game){
 void game_autosave(Game *game){
 	if (!game->save || !game->save_path[0]) return;
 	npc_sync_to_save(game);
+	chat_sync_to_save(game);
 
 	/* Le compteur d'API vit dans le client (les fils de requete l'alimentent) :
 	 * on en prend une photo au moment d'ecrire. */
@@ -89,7 +91,7 @@ void game_autosave(Game *game){
 	game->save->api_calls             = u.calls;
 
 	if (!save_write(game->save, game->save_path))
-		pinfo(game, "Echec de la sauvegarde (%s)\n", game->save_path);
+		pinfo_c(game, PAIR_DANGER, "Echec de la sauvegarde (%s)\n", game->save_path);
 	game->t_next_autosave = millis() + AUTOSAVE_PERIOD_MS;
 }
 
@@ -271,6 +273,37 @@ void print_header(Game *game){
 		header_entry(both, "Se deplacer", 0);
 		header_action(game, ACT_TALK, "Parler", 1);
 	}
+
+	/* L'enregistrement contient toute la verite privee de l'enquete : il ne
+	 * doit jamais pouvoir rester actif a l'insu du joueur. En mode alertes, la
+	 * position aide aussi a reproduire une anomalie ; elle reste collee a
+	 * gauche de l'indicateur du journal quand les deux modes sont actifs. */
+	const char *indicator = diag_enabled() ? "DIAGNOSTIC ENREGISTRE" : NULL;
+	char position[64];
+	int h, w;
+	getmaxyx(stdscr, h, w);
+	(void)h;
+	int right_edge = w - 2;
+
+	if (indicator) {
+		int x = right_edge - (int)strlen(indicator);
+		if (x >= 0) {
+			attron(COLOR_PAIR(PAIR_DANGER) | A_BOLD);
+			mvprintw(0, x, "%s", indicator);
+			attroff(COLOR_PAIR(PAIR_DANGER) | A_BOLD);
+			right_edge = x - 2;
+		}
+	}
+	if (game->options.diagnostic_ingame_logs) {
+		snprintf(position, sizeof(position), "POS (%d, %d)",
+		         game->player.x, game->player.y);
+		int x = right_edge - (int)strlen(position);
+		if (x >= 0) {
+			attron(COLOR_PAIR(PAIR_WARN) | A_BOLD);
+			mvprintw(0, x, "%s", position);
+			attroff(COLOR_PAIR(PAIR_WARN) | A_BOLD);
+		}
+	}
 	refresh();
 }
 
@@ -393,6 +426,7 @@ int game_loop(Game *game) {
 
 			case IN_KEY_MOVE:
 				ask_for_display_update(game);
+				if (game->options.diagnostic_ingame_logs) print_header(game);
 				break;
 
 			case IN_KEY_TEXT:
@@ -426,8 +460,10 @@ int game_loop(Game *game) {
 
 					if (talk == NPC_TALK_NOBODY)
 						pinfo_c(game, PAIR_WARN, "Personne ici pour vous entendre.\n");
-					else
+					else if (talk == NPC_TALK_BUSY)
 						pinfo_c(game, PAIR_WARN, "Laissez-le finir de repondre.\n");
+					else if (!diag_enabled())
+						pinfo_c(game, PAIR_DANGER, "Impossible de lancer la requete de dialogue.\n");
 					draw_input(game);
 				}
 				talk = 0;
@@ -650,6 +686,8 @@ int start_game(Game *game){
 	}
 	npc_place_all(game);
 	npc_restore_from_save(game);
+	chat_restore_from_save(game);
+	diag_game_state(game, "session_started");
 
 	menu_show_briefing(game);
 
@@ -664,6 +702,7 @@ int start_game(Game *game){
     /* Quitter ne doit rien couter : la derniere position et les derniers
      * echanges partent sur le disque avant de rendre le terminal. */
     game_autosave(game);
+	diag_game_state(game, "session_ended");
 
     delwin(game->display.main_win);                // Supprimer la fenêtre
 
@@ -695,11 +734,20 @@ exit_first:
 }
 
 int main(void) {
-
     Game game = {0};
     init_struct(&game);
+	if (game.options.diagnostic_file_logs && diag_init(true) != 0) {
+		fprintf(stderr, "Impossible de creer le journal de diagnostic dans diagnostics/.\n");
+		game.options.diagnostic_file_logs = false;
+		options_save(&game.options);
+	}
 
     int ret = start_game(&game);
+	char diagnostic_path[512] = "";
+	if (diag_enabled()) snprintf(diagnostic_path, sizeof(diagnostic_path), "%s", diag_path());
+	diag_close();
+	if (diagnostic_path[0])
+		printf("Diagnostic enregistre dans %s\n", diagnostic_path);
 
     if (ret != 0){
         printf("Erreur lors du lancement du jeu : %s\n", game.exit_error);

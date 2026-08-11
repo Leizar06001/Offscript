@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "diag.h"
 #include "prompt.h"
 
 #include <openssl/crypto.h>
@@ -1004,11 +1005,90 @@ static bool confirm(const char *title, const char *line1, const char *line2,
 #define OPT_ROW_REASONING (ACT_COUNT)
 #define OPT_ROW_PRICE_IN  (ACT_COUNT + 1)
 #define OPT_ROW_PRICE_OUT (ACT_COUNT + 2)
-#define OPT_ROW_ZQSD      (ACT_COUNT + 3)
-#define OPT_ROW_WASD      (ACT_COUNT + 4)
-#define OPT_ROW_DEFAULTS  (ACT_COUNT + 5)
-#define OPT_ROW_APIKEY    (ACT_COUNT + 6)
-#define OPT_ROW_COUNT     (ACT_COUNT + 7)
+#define OPT_ROW_DIAGNOSTIC (ACT_COUNT + 3)
+#define OPT_ROW_ZQSD      (ACT_COUNT + 4)
+#define OPT_ROW_WASD      (ACT_COUNT + 5)
+#define OPT_ROW_DEFAULTS  (ACT_COUNT + 6)
+#define OPT_ROW_APIKEY    (ACT_COUNT + 7)
+#define OPT_ROW_COUNT     (ACT_COUNT + 8)
+
+static void menu_diagnostics(Game *game) {
+	Options *o = &game->options;
+	int h, w;
+	getmaxyx(stdscr, h, w);
+	int win_w = w - 8 < 72 ? w - 8 : 72;
+	int win_h = 12;
+	WINDOW *win = newwin(win_h, win_w, (h - win_h) / 2, (w - win_w) / 2);
+	keypad(win, TRUE);
+	nodelay(win, FALSE);
+	int sel = 0;
+	char message[128] = "";
+
+	for (;;) {
+		werase(win);
+		wattron(win, COLOR_PAIR(24)); box(win, 0, 0); wattroff(win, COLOR_PAIR(24));
+		wattron(win, COLOR_PAIR(PAIR_TITLE) | A_BOLD);
+		mvwprintw(win, 1, 3, "DIAGNOSTIC");
+		wattroff(win, COLOR_PAIR(PAIR_TITLE) | A_BOLD);
+
+		const char *labels[2] = { "Journal JSONL", "Alertes dans le jeu" };
+		bool values[2] = { o->diagnostic_file_logs, o->diagnostic_ingame_logs };
+		for (int i = 0; i < 2; i++) {
+			if (sel == i) wattron(win, A_REVERSE);
+			wattron(win, COLOR_PAIR(PAIR_TEXT));
+			mvwprintw(win, 3 + i, 3, " %-27s ", labels[i]);
+			wattroff(win, COLOR_PAIR(PAIR_TEXT));
+			wattron(win, COLOR_PAIR(values[i] ? PAIR_GOOD : PAIR_WARN));
+			wprintw(win, "%-10s", values[i] ? "ACTIVE" : "DESACTIVE");
+			wattroff(win, COLOR_PAIR(values[i] ? PAIR_GOOD : PAIR_WARN));
+			if (sel == i) wattroff(win, A_REVERSE);
+		}
+
+		wattron(win, COLOR_PAIR(9));
+		mvwprintw(win, 6, 3, "%.*s", win_w - 6,
+		          sel == 0 ? "Enregistre prompts, reponses et decisions dans diagnostics/."
+		                   : "Affiche seulement les anomalies sous le chat, sans journal fichier.");
+		mvwprintw(win, 7, 3, "Les journaux contiennent les secrets et la solution de l'enquete.");
+		wattroff(win, COLOR_PAIR(9));
+		if (message[0]) {
+			wattron(win, COLOR_PAIR(PAIR_DANGER));
+			mvwprintw(win, 9, 3, "%.*s", win_w - 6, message);
+			wattroff(win, COLOR_PAIR(PAIR_DANGER));
+		} else {
+			wattron(win, COLOR_PAIR(9));
+			mvwprintw(win, 9, 3, "[Haut/Bas] choisir   [Entree] activer/desactiver   [ESC] retour");
+			wattroff(win, COLOR_PAIR(9));
+		}
+		wrefresh(win);
+		message[0] = '\0';
+
+		int ch = wgetch(win);
+		if (ch == ERR) continue;
+		if (ch == 27) break;
+		if (ch == KEY_UP || ch == KEY_DOWN) { sel = 1 - sel; continue; }
+		if (ch != '\n' && ch != KEY_ENTER) continue;
+
+		if (sel == 0) {
+			if (o->diagnostic_file_logs) {
+				diag_close();
+				o->diagnostic_file_logs = false;
+			} else if (game->pending_req || game->analysis_req) {
+				snprintf(message, sizeof(message),
+				         "Attendez la fin des requetes en cours avant de demarrer le journal.");
+			} else if (diag_init(true) == 0) {
+				o->diagnostic_file_logs = true;
+			} else {
+				snprintf(message, sizeof(message), "Impossible de creer le fichier diagnostic.");
+			}
+		} else {
+			o->diagnostic_ingame_logs = !o->diagnostic_ingame_logs;
+		}
+		if (!options_save(o))
+			snprintf(message, sizeof(message), "Reglage actif mais impossible a enregistrer.");
+	}
+
+	delwin(win);
+}
 
 /* Applique une disposition de deplacement sur la touche secondaire, en
  * laissant les fleches en place. Les lettres reprises ailleurs sont liberees :
@@ -1103,15 +1183,15 @@ static void draw_options(WINDOW *win, int h, int w, const Options *o, int sel,
 	}
 
 	y++;
-	const char *actions[4] = { " Disposition ZQSD ", " Disposition WASD ",
+	const char *actions[5] = { " Reglages diagnostic ", " Disposition ZQSD ", " Disposition WASD ",
 	                           " Tout remettre par defaut ",
 	                           " Changer la cle d'API " };
-	for (int i = 0; i < 4 && y < h - 2; i++, y++) {
-		if (sel == OPT_ROW_ZQSD + i) wattron(win, A_REVERSE);
+	for (int i = 0; i < 5 && y < h - 2; i++, y++) {
+		if (sel == OPT_ROW_DIAGNOSTIC + i) wattron(win, A_REVERSE);
 		wattron(win, COLOR_PAIR(PAIR_GOOD));
 		mvwprintw(win, y, 3, "%s", actions[i]);
 		wattroff(win, COLOR_PAIR(PAIR_GOOD));
-		if (sel == OPT_ROW_ZQSD + i) wattroff(win, A_REVERSE);
+		if (sel == OPT_ROW_DIAGNOSTIC + i) wattroff(win, A_REVERSE);
 	}
 
 	wattron(win, COLOR_PAIR(9));
@@ -1227,6 +1307,14 @@ void menu_options(Game *game) {
 		}
 		if (sel == OPT_ROW_PRICE_IN)  { ask_price("Jetons envoyes", &o->price_in_per_m);  continue; }
 		if (sel == OPT_ROW_PRICE_OUT) { ask_price("Jetons recus",  &o->price_out_per_m); continue; }
+		if (sel == OPT_ROW_DIAGNOSTIC) {
+			delwin(win);
+			menu_diagnostics(game);
+			clear(); refresh();
+			win = newwin(win_h, win_w, 1, 1);
+			keypad(win, TRUE); nodelay(win, FALSE);
+			continue;
+		}
 		if (sel == OPT_ROW_ZQSD)      { options_set_layout(o, "zqsd"); continue; }
 		if (sel == OPT_ROW_WASD)      { options_set_layout(o, "wasd"); continue; }
 		if (sel == OPT_ROW_DEFAULTS)  { options_defaults(o); continue; }
@@ -1261,6 +1349,10 @@ void menu_options(Game *game) {
 	 * fermeture : on applique et on enregistre en sortant. */
 	deepseek_set_prices(o->price_in_per_m, o->price_out_per_m);
 	deepseek_set_reasoning(o->reasoning);
+	if (!o->diagnostic_file_logs && diag_enabled()) diag_close();
+	else if (o->diagnostic_file_logs && !diag_enabled() &&
+	         !game->pending_req && !game->analysis_req && diag_init(true) != 0)
+		o->diagnostic_file_logs = false;
 	if (!options_save(o))
 		snprintf(message, sizeof(message), "Reglages non enregistres.");
 

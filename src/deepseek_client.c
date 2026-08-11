@@ -1,4 +1,5 @@
 #include "deepseek_client.h"
+#include "diag.h"
 #include "json_min.h"
 #include "textutil.h"
 
@@ -8,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define DEEPSEEK_URL "https://api.deepseek.com/chat/completions"
@@ -157,6 +159,7 @@ struct DeepseekRequest {
 	pthread_mutex_t mutex;
 	DeepseekMode    mode;
 	int             ready;      /* 0 pending, 1 ok, -1 erreur */
+	int             structured; /* le dialogue respectait l'objet JSON demande */
 
 	DialogueReply reply;        /* DS_DIALOGUE */
 	char         *raw_text;     /* DS_RAW: reponse brute du modele */
@@ -171,6 +174,10 @@ struct DeepseekRequest {
 typedef struct {
 	DeepseekRequest *req;
 	char            *body;   /* possede par le thread */
+	char            *purpose;
+	char            *model;
+	long             diag_id;
+	struct timespec  started;
 } AskThreadArgs;
 
 /* ------------------------------------------------------------------ */
@@ -187,7 +194,8 @@ static void add_message(StrBuf *sb, const char *role, const char *content, bool 
 
 static char *build_body(const char *system_prompt,
                         const DeepseekMsg *history, int nb_history,
-                        const char *user_text, bool stream, const char *model_name) {
+                        const char *user_text, bool stream, const char *model_name,
+                        const char *reasoning) {
 	StrBuf sb;
 	sb_init(&sb);
 
@@ -199,7 +207,8 @@ static char *build_body(const char *system_prompt,
 	 * cette option le dernier fragment ne porte aucun compte de jetons et le
 	 * compteur resterait a zero pour tous les dialogues. */
 	if (stream) sb_add(&sb, "\"stream_options\":{\"include_usage\":true},");
-	if (g_reasoning[0]) sb_addf(&sb, "\"reasoning_effort\":\"%s\",", g_reasoning);
+	if (reasoning && *reasoning)
+		sb_addf(&sb, "\"reasoning_effort\":\"%s\",", reasoning);
 	sb_add(&sb, "\"messages\":[");
 
 	add_message(&sb, "system", system_prompt ? system_prompt : "", true);
@@ -447,19 +456,22 @@ static void *ask_thread_main(void *arg) {
 	 * reponse): un seul reessai sur ce cas ameliore nettement la fiabilite.
 	 * Pas de reessai sur une erreur HTTP, qui ne se corrigerait pas. */
 	long status = 0;
+	int attempts = 1;
 	CURLcode res = perform_once(a->body, &ctx, stream, &status);
-	if (res != CURLE_OK) res = perform_once(a->body, &ctx, stream, &status);
-
-	free(a->body);
-	free(a);
+	if (res != CURLE_OK) {
+		attempts = 2;
+		res = perform_once(a->body, &ctx, stream, &status);
+	}
 
 	DialogueReply reply = { NULL, NULL, NULL, 0, NULL };
 	char *raw_text = NULL;
 	int ok = 0;
+	int requested_output_parsed = 0;
 
 	if (res == CURLE_OK && status >= 200 && status < 300 && ctx.content_len > 0) {
 		if (req->mode == DS_DIALOGUE) {
 			ok = dialogue_reply_from_text(ctx.content, &reply);
+			requested_output_parsed = ok;
 			/* Le modele a repondu en prose au lieu de l'objet demande : on
 			 * garde quand meme la replique plutot que de perdre le tour. */
 			if (!ok) ok = dialogue_reply_from_prose(ctx.content, &reply);
@@ -477,6 +489,21 @@ static void *ask_thread_main(void *arg) {
 		}
 	}
 
+	struct timespec ended;
+	clock_gettime(CLOCK_MONOTONIC, &ended);
+	long duration = (ended.tv_sec - a->started.tv_sec) * 1000L
+	              + (ended.tv_nsec - a->started.tv_nsec) / 1000000L;
+	diag_api_response(a->diag_id, a->purpose, a->model, status, (int)res,
+	                  duration, attempts, curl_easy_strerror(res),
+	                  stream ? NULL : ctx.content,
+	                  stream ? ctx.content : raw_text, ok != 0,
+	                  stream ? requested_output_parsed != 0 : ok != 0);
+
+	free(a->body);
+	free(a->purpose);
+	free(a->model);
+	free(a);
+
 	free(ctx.sse_buf);
 	free(ctx.content);
 	free(ctx.emotion);
@@ -484,12 +511,14 @@ static void *ask_thread_main(void *arg) {
 	pthread_mutex_lock(&req->mutex);
 	req->reply    = reply;
 	req->raw_text = raw_text;
+	req->structured = requested_output_parsed;
 	req->ready    = ok ? 1 : -1;
 	pthread_mutex_unlock(&req->mutex);
 	return NULL;
 }
 
-static DeepseekRequest *spawn(DeepseekMode mode, char *body) {
+static DeepseekRequest *spawn(DeepseekMode mode, char *body,
+		const char *purpose, const char *model) {
 	DeepseekRequest *req = calloc(1, sizeof(*req));
 	pthread_mutex_init(&req->mutex, NULL);
 	req->mode  = mode;
@@ -498,9 +527,17 @@ static DeepseekRequest *spawn(DeepseekMode mode, char *body) {
 	AskThreadArgs *args = malloc(sizeof(*args));
 	args->req  = req;
 	args->body = body;
+	args->purpose = strdup(purpose);
+	args->model = strdup(model);
+	args->diag_id = diag_api_request(purpose, model, body);
+	clock_gettime(CLOCK_MONOTONIC, &args->started);
 
 	if (pthread_create(&req->thread, NULL, ask_thread_main, args) != 0) {
+		diag_api_response(args->diag_id, purpose, model, 0, -1, 0, 0,
+		                  "pthread_create failed", NULL, NULL, false, false);
 		free(args->body);
+		free(args->purpose);
+		free(args->model);
 		free(args);
 		pthread_mutex_destroy(&req->mutex);
 		free(req);
@@ -514,15 +551,24 @@ DeepseekRequest *deepseek_ask_dialogue(const char *system_prompt,
                                         const DeepseekMsg *history, int nb_history,
                                         const char *user_text) {
 	return spawn(DS_DIALOGUE,
-	             build_body(system_prompt, history, nb_history, user_text, true, g_model));
+	             build_body(system_prompt, history, nb_history, user_text, true, g_model,
+	                        g_reasoning),
+	             "dialogue", g_model);
 }
 
 DeepseekRequest *deepseek_ask_raw(const char *system_prompt, const char *user_text) {
-	return spawn(DS_RAW, build_body(system_prompt, NULL, 0, user_text, false, g_model));
+	/* Classer un echange et extraire quelques identifiants ne justifie jamais
+	 * des milliers de jetons de raisonnement. Ce choix est independant du
+	 * niveau regle par le joueur pour les dialogues. */
+	return spawn(DS_RAW, build_body(system_prompt, NULL, 0, user_text, false, g_model,
+	                              "low"),
+	             "memory_analysis", g_model);
 }
 
 DeepseekRequest *deepseek_ask_story(const char *system_prompt, const char *user_text) {
-	return spawn(DS_RAW, build_body(system_prompt, NULL, 0, user_text, false, g_model_story));
+	return spawn(DS_RAW, build_body(system_prompt, NULL, 0, user_text, false, g_model_story,
+	                              g_reasoning),
+	             "story_generation", g_model_story);
 }
 
 /* ------------------------------------------------------------------ */
@@ -534,19 +580,21 @@ static void request_destroy(DeepseekRequest *req) {
 	free(req);
 }
 
-int deepseek_poll(DeepseekRequest *req, DialogueReply *out) {
+int deepseek_poll(DeepseekRequest *req, DialogueReply *out, bool *out_structured) {
 	pthread_mutex_lock(&req->mutex);
 	int status = req->ready;
 	DialogueReply reply = req->reply;
 	char *partial = req->partial_line;
 	char *emotion = req->emotion_pub;
 	char *raw     = req->raw_text;
+	int structured = req->structured;
 	pthread_mutex_unlock(&req->mutex);
 
 	if (status == 0) return 0;
 
 	if (out) *out = reply;
 	else dialogue_reply_free(&reply);
+	if (out_structured) *out_structured = structured != 0;
 
 	free(partial);
 	free(emotion);

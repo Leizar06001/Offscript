@@ -72,6 +72,10 @@ char *prompt_build_analysis(const Story *story, const StoryCharacter *ch,
 #define ANALYSIS_MAX_FACTS 8
 
 typedef struct {
+	/* Faux quand l'echange contient une personne, un document ou un fait que
+	 * rien dans la fiche n'autorise. Un tel echange a pu etre affiche, mais il
+	 * ne doit jamais devenir une nouvelle verite durable dans la sauvegarde. */
+	bool  grounded;
 	bool  remember;
 	char *type;
 	char *summary;

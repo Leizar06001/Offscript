@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "diag.h"
 #include "prompt.h"
 #include "textutil.h"
 
@@ -458,16 +459,27 @@ void npc_movement_update(Game *game) {
 /* Applique une instruction de deplacement proposee par le modele. Le moteur
  * valide tout : un identifiant inconnu, une piece interdite ou un personnage
  * absent sont simplement ignores, comme partout ailleurs. */
-void npc_apply_move_order(Game *game, int idx, const char *order) {
-	if (!order || !*order) return;
+const char *npc_move_result_name(NpcMoveResult result) {
+	switch (result) {
+		case NPC_MOVE_NO_OP:         return "no_op";
+		case NPC_MOVE_ACCEPTED:      return "accepted";
+		case NPC_MOVE_REJECTED:      return "rejected";
+		case NPC_MOVE_NOT_REQUESTED: return "not_requested";
+	}
+	return "rejected";
+}
+
+NpcMoveResult npc_apply_move_order(Game *game, int idx, const char *order) {
+	if (!order || !*order) return NPC_MOVE_NOT_REQUESTED;
 
 	NPC *npc = &game->npcs[idx];
-	if (!npc->can_move) return;
 
 	if (strcmp(order, "reste") == 0) {
+		bool was_moving = npc->moving;
 		npc->moving = false;
-		return;
+		return was_moving ? NPC_MOVE_ACCEPTED : NPC_MOVE_NO_OP;
 	}
+	if (!npc->can_move) return NPC_MOVE_REJECTED;
 
 	/* Un pas vers le joueur ou un pas en arriere : c'est le geste le plus
 	 * courant en interrogatoire, il doit rester immediat. */
@@ -492,8 +504,9 @@ void npc_apply_move_order(Game *game, int idx, const char *order) {
 			npc->x = bx; npc->y = by;
 			npc_refresh_room(game, idx);
 			ask_for_display_update(game);
+			return NPC_MOVE_ACCEPTED;
 		}
-		return;
+		return NPC_MOVE_REJECTED;
 	}
 
 	if (strncmp(order, "piece:", 6) == 0) {
@@ -501,7 +514,7 @@ void npc_apply_move_order(Game *game, int idx, const char *order) {
 		if (getenv("OFFSCRIPT_DEBUG_MOVE"))
 			chat_addf(game, CHAT_SYSTEM, -1, "[debug] piece '%s' -> room=%d (npc room=%d, change=%d)",
 			          order + 6, room, npc->room, npc->can_change_room);
-		if (room == ROOM_NONE) return;
+		if (room == ROOM_NONE) return NPC_MOVE_REJECTED;
 		int x, y;
 		if (map_random_spot_in_room(&game->map, room, (int)(npc_rand() & 0x7FFF), &x, &y) == 0) {
 			bool ok = npc_goto(game, idx, x, y);
@@ -509,10 +522,11 @@ void npc_apply_move_order(Game *game, int idx, const char *order) {
 				chat_addf(game, CHAT_SYSTEM, -1, "[debug] goto (%d,%d) -> %s, chemin=%d",
 				          x, y, ok ? "ok" : "REFUSE",
 				          map_path_len(&game->map, npc->x, npc->y, x, y));
+			return ok ? NPC_MOVE_ACCEPTED : NPC_MOVE_REJECTED;
 		} else if (getenv("OFFSCRIPT_DEBUG_MOVE")) {
 			chat_addf(game, CHAT_SYSTEM, -1, "[debug] aucune place libre dans la piece");
 		}
-		return;
+		return NPC_MOVE_REJECTED;
 	}
 
 	if (strncmp(order, "rejoint:", 8) == 0) {
@@ -532,12 +546,13 @@ void npc_apply_move_order(Game *game, int idx, const char *order) {
 					/* On retient l'intention : a l'arrivee, il lui adressera
 					 * la parole. Sinon il faisait le trajet pour rien. */
 					npc->goes_to_talk_to = i;
-					return;
+					return NPC_MOVE_ACCEPTED;
 				}
 			}
-			return;
+			return NPC_MOVE_REJECTED;
 		}
 	}
+	return NPC_MOVE_REJECTED;
 }
 
 /* ------------------------------------------------------------------ */
@@ -627,7 +642,11 @@ static int npc_send_to(Game *game, int idx, const char *text, bool overheard,
 
 	game->pending_req = deepseek_ask_dialogue(system_prompt, hist, nh, text);
 	free(system_prompt);
-	if (!game->pending_req) return NPC_TALK_NOBODY;
+	if (!game->pending_req) {
+		pdiag(game, PAIR_DANGER, "Impossible de lancer la requete de dialogue (%s).",
+		      npc->def->id ? npc->def->id : "npc inconnu");
+		return NPC_TALK_ERROR;
+	}
 
 	/* La question n'est pas encore ecrite dans l'historique : les deux tours
 	 * ne sont valides qu'ensemble, apres succes, pour ne jamais laisser un
@@ -797,7 +816,27 @@ static int dialogue_watchdog(Game *game) {
 	chat_addf(game, CHAT_SYSTEM, -1,
 	          "%s n'a jamais repondu (delai depasse). Vous pouvez reposer la question.",
 	          idx >= 0 ? npc_display_name(&game->npcs[idx]) : "Votre interlocuteur");
+	pdiag(game, PAIR_DANGER, "Reponse abandonnee: delai de 180 s depasse.");
 	return 1;
+}
+
+/* Les salutations et demandes d'identite ne peuvent legitimement produire ni
+ * preuve, ni souvenir important, ni changement de relation. Les envoyer au
+ * modele consommait pourtant un appel complet — parfois plusieurs milliers de
+ * jetons de raisonnement — au moment de quitter chaque personnage. */
+static bool analysis_question_is_trivial(const char *question) {
+	char q[512];
+	text_fold_ascii(q, sizeof(q), question ? question : "");
+	if (strlen(q) > 96) return false;
+
+	if (strstr(q, "qui etes vous") || strstr(q, "qui es tu") ||
+	    strstr(q, "votre nom") || strstr(q, "comment vous appelez") ||
+	    strstr(q, "comment t'appelles") || strstr(q, "vous meme") ||
+	    strcmp(q, "et vous") == 0 || strcmp(q, "et vous ?") == 0)
+		return true;
+
+	return strcmp(q, "bonjour") == 0 || strcmp(q, "salut") == 0 ||
+	       strcmp(q, "bonsoir") == 0;
 }
 
 /* Lance l'analyse memoire (2e appel, en tache de fond) si l'intervalle
@@ -814,6 +853,10 @@ static void maybe_start_analysis(Game *game, int npc_idx, const char *question,
 	int interval = game->story->memory.memory_analysis_interval;
 	if (interval < 1) interval = 1;
 	if (ns->exchanges_since_analysis < interval) return;
+	if (analysis_question_is_trivial(question)) {
+		ns->exchanges_since_analysis = 0;
+		return;
+	}
 
 	char *p = prompt_build_analysis(game->story, npc->def, question, reply_line);
 	game->analysis_req = deepseek_ask_raw(p, "Analyse cet echange.");
@@ -853,6 +896,10 @@ static void flush_stale_analysis(Game *game) {
 			else if (answer && strcmp(ns->recent[m].role, "user") == 0) { question = ns->recent[m].content; break; }
 		}
 		if (!answer) continue;
+		if (analysis_question_is_trivial(question)) {
+			ns->exchanges_since_analysis = 0;
+			continue;
+		}
 
 		char *p = prompt_build_analysis(game->story, npc->def, question, answer);
 		game->analysis_req = deepseek_ask_raw(p, "Analyse cet echange.");
@@ -871,7 +918,23 @@ static void flush_stale_analysis(Game *game) {
 static void apply_analysis(Game *game, int npc_idx, const char *raw) {
 	NPC *npc = &game->npcs[npc_idx];
 	AnalysisResult a;
-	if (!analysis_parse(raw, game->story, npc->def, &a)) return;
+	if (!analysis_parse(raw, game->story, npc->def, &a)) {
+		diag_analysis_rejected(game, npc_idx, raw);
+		pdiag(game, PAIR_DANGER, "Analyse rejetee (%s): format ou identifiants invalides.",
+		      npc->def->id ? npc->def->id : "npc inconnu");
+		return;
+	}
+	NpcState *state_before = memory_get_npc(game->save, npc->def->id);
+	Relation relation_before = state_before ? state_before->rel : (Relation){0, 0, 0, 0};
+	int facts_before = game->save->nb_known_facts;
+	int clues_before = game->save->nb_discovered_clues;
+	if (!a.grounded) {
+		diag_analysis(game, npc_idx, &a, facts_before, clues_before, relation_before);
+		pdiag(game, PAIR_WARN, "Analyse ignoree (%s): reponse non fondee sur le scenario.",
+		      npc->def->id ? npc->def->id : "npc inconnu");
+		analysis_free(&a);
+		return;
+	}
 
 	int min_imp = game->story->memory.minimum_importance_to_store;
 	if (a.remember && a.summary && a.importance >= min_imp) {
@@ -914,6 +977,7 @@ static void apply_analysis(Game *game, int npc_idx, const char *raw) {
 		}
 	}
 
+	diag_analysis(game, npc_idx, &a, facts_before, clues_before, relation_before);
 	analysis_free(&a);
 }
 
@@ -928,7 +992,9 @@ void npc_talk_update(Game *game) {
 			if (st == 1 && raw) {
 				apply_analysis(game, game->analysis_npc, raw);
 				game_autosave(game);
-			}
+			} else if (st < 0)
+				pdiag(game, PAIR_DANGER, "Analyse modele echouee (%s).",
+				      game->analysis_npc >= 0 ? game->npcs[game->analysis_npc].def->id : "npc inconnu");
 			free(raw);
 			game->analysis_npc = -1;
 		}
@@ -973,7 +1039,8 @@ void npc_talk_update(Game *game) {
 	}
 
 	DialogueReply reply;
-	int status = deepseek_poll(game->pending_req, &reply);
+	bool structured = true;
+	int status = deepseek_poll(game->pending_req, &reply, &structured);
 	if (status == 0) return;
 
 	game->pending_req = NULL;
@@ -984,9 +1051,16 @@ void npc_talk_update(Game *game) {
 
 	if (status != 1) {
 		if (game->stream_started) chat_stream_end(game);
-		pinfo(game, "%s ne repond pas (erreur de requete).\n", npc_display_name(npc));
+		if (game->options.diagnostic_ingame_logs)
+			pdiag(game, PAIR_DANGER, "Dialogue rejete (%s): reseau, HTTP ou contenu inutilisable.",
+			      npc->def->id ? npc->def->id : "npc inconnu");
+		else
+			pinfo(game, "%s ne repond pas (erreur de requete).\n", npc_display_name(npc));
 		return;
 	}
+	if (!structured)
+		pdiag(game, PAIR_WARN, "Format dialogue incorrect (%s): prose recuperee.",
+		      npc->def->id ? npc->def->id : "npc inconnu");
 
 	/* Une intervention peut se solder par un silence : c'est le cas le plus
 	 * frequent, et il ne doit laisser aucune trace, ni dans le fil ni dans la
@@ -1015,7 +1089,18 @@ void npc_talk_update(Game *game) {
 	if (getenv("OFFSCRIPT_DEBUG_MOVE"))
 		chat_addf(game, CHAT_SYSTEM, -1, "[debug] move=%s",
 		          reply.move ? reply.move : "(absent)");
-	if (reply.move) npc_apply_move_order(game, idx, reply.move);
+	int x_before = npc->x, y_before = npc->y, room_before = npc->room;
+	int dest_x_before = npc->dest_x, dest_y_before = npc->dest_y;
+	bool moving_before = npc->moving;
+	NpcMoveResult move_result = npc_apply_move_order(game, idx, reply.move);
+	diag_dialogue(game, idx, game->pending_question, reply.line, reply.emotion,
+	              reply.action, reply.move, move_result, was_interjection,
+	              x_before, y_before, room_before, moving_before,
+	              dest_x_before, dest_y_before);
+	if (move_result == NPC_MOVE_REJECTED)
+		pdiag(game, PAIR_WARN, "Deplacement refuse (%s): %s.",
+		      npc->def->id ? npc->def->id : "npc inconnu",
+		      reply.move ? reply.move : "ordre absent");
 
 	/* Les deux tours sont valides ensemble, maintenant qu'on a une reponse. */
 	NpcState *ns = memory_get_npc(game->save, npc->def->id);

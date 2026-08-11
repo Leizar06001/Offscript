@@ -11,6 +11,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define SAVE_VERSION_CURRENT 2
+
 /* ------------------------------------------------------------------ */
 /* Chemins                                                             */
 /* ------------------------------------------------------------------ */
@@ -160,7 +162,7 @@ static void npc_state_init(NpcState *n, const char *npc_id) {
 
 SaveState *save_new(const Story *story, const char *player_name) {
 	SaveState *st = calloc(1, sizeof(SaveState));
-	st->save_version = 1;
+	st->save_version = SAVE_VERSION_CURRENT;
 	st->story_id     = strdup(story->id);
 	st->game_time    = 0;
 	st->player_name  = strdup(player_name ? player_name : "Detective");
@@ -225,6 +227,11 @@ void save_free(SaveState *st) {
 		free(st->extra_knowledge[i].fact_id);
 	}
 	free(st->extra_knowledge);
+	for (int i = 0; i < st->nb_chat_log; i++) {
+		free(st->chat_log[i].npc_id);
+		free(st->chat_log[i].text);
+	}
+	free(st->chat_log);
 	for (int i = 0; i < st->nb_npcs; i++) free_npc_state(&st->npcs[i]);
 	free(st->npcs);
 	free(st);
@@ -552,7 +559,7 @@ bool save_write(const SaveState *st, const char *path) {
 	char *story_esc  = json_escape(st->story_id);
 	char *player_esc = json_escape(st->player_name);
 
-	sb_addf(&sb, "{\n  \"save_version\": %d,\n", st->save_version);
+	sb_addf(&sb, "{\n  \"save_version\": %d,\n", SAVE_VERSION_CURRENT);
 	sb_addf(&sb, "  \"story_id\": \"%s\",\n", story_esc);
 	sb_addf(&sb, "  \"game_time\": %ld,\n", st->game_time);
 	if (st->culprit_id) {
@@ -605,6 +612,23 @@ bool save_write(const SaveState *st, const char *path) {
 	sb_addf(&sb, "  \"api_usage\": { \"prompt_tokens\": %ld, \"completion_tokens\": %ld, "
 	             "\"calls\": %ld },\n",
 	        st->api_prompt_tokens, st->api_completion_tokens, st->api_calls);
+
+	/* Fil visuel complet. Il est volontairement separe des recent_messages :
+	 * celui-ci sert a l'ecran, ceux-la seuls repartent dans les prompts. */
+	sb_add(&sb, "  \"chat_log\": [");
+	for (int i = 0; i < st->nb_chat_log; i++) {
+		const SavedChatEntry *e = &st->chat_log[i];
+		char *text = json_escape(e->text ? e->text : "");
+		sb_addf(&sb, "%s\n    { \"kind\": %d, \"npc_id\": ", i ? "," : "", e->kind);
+		if (e->npc_id) {
+			char *npc = json_escape(e->npc_id);
+			sb_addf(&sb, "\"%s\"", npc);
+			free(npc);
+		} else sb_add(&sb, "null");
+		sb_addf(&sb, ", \"text\": \"%s\" }", text);
+		free(text);
+	}
+	sb_add(&sb, st->nb_chat_log ? "\n  ],\n" : "],\n");
 
 	sb_addf(&sb, "  \"player\": {\n    \"name\": \"%s\",\n", player_esc);
 	sb_addf(&sb, "    \"x\": %d,\n    \"y\": %d,\n", st->player_x, st->player_y);
@@ -766,6 +790,21 @@ SaveState *save_load(const Story *story, const char *path) {
 	st->api_prompt_tokens     = (long)json_number_or(json_object_get(api, "prompt_tokens"), 0);
 	st->api_completion_tokens = (long)json_number_or(json_object_get(api, "completion_tokens"), 0);
 	st->api_calls             = (long)json_number_or(json_object_get(api, "calls"), 0);
+
+	JsonValue *chat = json_object_get(root, "chat_log");
+	int nb_chat = json_array_count(chat);
+	if (nb_chat > 0) {
+		st->chat_log = calloc((size_t)nb_chat, sizeof(SavedChatEntry));
+		for (int i = 0; i < nb_chat; i++) {
+			JsonValue *item = json_array_get(chat, i);
+			SavedChatEntry *entry = &st->chat_log[st->nb_chat_log];
+			entry->kind   = json_int_or(json_object_get(item, "kind"), 3);
+			entry->npc_id = json_strdup(json_object_get(item, "npc_id"));
+			entry->text   = json_strdup(json_object_get(item, "text"));
+			if (entry->text) st->nb_chat_log++;
+			else { free(entry->npc_id); memset(entry, 0, sizeof(*entry)); }
+		}
+	}
 
 	JsonValue *pl = json_object_get(root, "player");
 	st->player_name = json_strdup(json_object_get(pl, "name"));

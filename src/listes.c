@@ -20,15 +20,18 @@ typedef struct {
 	int  attrs;
 } ChatLine;
 
-static ChatLine g_lines[CHAT_LINES_MAX];
+static ChatLine *g_lines;
 static int      g_nb_lines;
+static int      g_cap_lines;
 
 /* ------------------------------------------------------------------ */
 /* Cycle de vie                                                        */
 /* ------------------------------------------------------------------ */
 
 void chat_init(Game *game) {
+	game->chat.log    = NULL;
 	game->chat.nb_log = 0;
+	game->chat.cap_log = 0;
 	game->chat.scroll = 0;
 	game->chat.live   = -1;
 	game->chat.dirty  = 1;
@@ -41,6 +44,9 @@ void chat_free(Game *game) {
 		game->chat.log[i].text = NULL;
 	}
 	game->chat.nb_log = 0;
+	free(game->chat.log);
+	game->chat.log = NULL;
+	game->chat.cap_log = 0;
 	game->chat.live = -1;
 }
 
@@ -48,22 +54,19 @@ void chat_touch(Game *game) {
 	game->chat.dirty = 1;
 }
 
-/* Fait de la place en jetant les plus anciennes entrees. La borne existe pour
- * que le cout du redessin reste constant, pas pour economiser la memoire. */
-static void chat_make_room(Chat *c) {
-	if (c->nb_log < CHAT_LOG_MAX) return;
-
-	int drop = CHAT_LOG_MAX / 4;
-	for (int i = 0; i < drop; i++) free(c->log[i].text);
-	memmove(c->log, c->log + drop, sizeof(ChatEntry) * (size_t)(c->nb_log - drop));
-	c->nb_log -= drop;
-	if (c->live >= 0) c->live -= drop;
-	if (c->live < 0) c->live = -1;
+static bool chat_reserve(Chat *c) {
+	if (c->nb_log < c->cap_log) return true;
+	int cap = c->cap_log > 0 ? c->cap_log * 2 : 128;
+	ChatEntry *grown = realloc(c->log, sizeof(ChatEntry) * (size_t)cap);
+	if (!grown) return false;
+	c->log = grown;
+	c->cap_log = cap;
+	return true;
 }
 
 static int chat_push(Game *game, int kind, int npc_index, const char *text) {
 	Chat *c = &game->chat;
-	chat_make_room(c);
+	if (!chat_reserve(c)) return -1;
 
 	ChatEntry *e = &c->log[c->nb_log];
 	e->kind      = kind;
@@ -91,6 +94,89 @@ void chat_addf(Game *game, int kind, int npc_index, const char *fmt, ...) {
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 	chat_add(game, kind, npc_index, buf);
+}
+
+/* Le fil complet appartient a la sauvegarde, mais jamais au prompt. On en
+ * prend une copie coherente au moment de l'autosave ; une replique encore en
+ * streaming est omise jusqu'a sa prochaine sauvegarde, car elle n'est pas un
+ * tour termine. */
+void chat_sync_to_save(Game *game) {
+	if (!game || !game->save) return;
+	SaveState *save = game->save;
+	pthread_mutex_lock(&game->chat.m_chat_box);
+
+	/* Le chargement prepare et autosauvegarde parfois la resolution avant que
+	 * la carte — et donc le fil runtime — soit restauree. Une fenetre encore
+	 * vide ne doit jamais effacer un chat_log deja lu depuis le disque. */
+	if (game->chat.nb_log == 0 && save->nb_chat_log > 0) {
+		pthread_mutex_unlock(&game->chat.m_chat_box);
+		return;
+	}
+
+	for (int i = 0; i < save->nb_chat_log; i++) {
+		free(save->chat_log[i].npc_id);
+		free(save->chat_log[i].text);
+	}
+	free(save->chat_log);
+	save->chat_log = NULL;
+	save->nb_chat_log = 0;
+
+	int count = game->chat.nb_log - (game->chat.live >= 0 ? 1 : 0);
+	if (count > 0) save->chat_log = calloc((size_t)count, sizeof(SavedChatEntry));
+	for (int i = 0; i < game->chat.nb_log; i++) {
+		if (i == game->chat.live) continue;
+		const ChatEntry *src = &game->chat.log[i];
+		SavedChatEntry *dst = &save->chat_log[save->nb_chat_log++];
+		dst->kind = src->kind;
+		dst->text = strdup(src->text ? src->text : "");
+		if ((src->kind == CHAT_NPC || src->kind == CHAT_ACTION) &&
+		    src->npc_index >= 0 && src->npc_index < game->nb_npcs &&
+		    game->npcs[src->npc_index].def && game->npcs[src->npc_index].def->id)
+			dst->npc_id = strdup(game->npcs[src->npc_index].def->id);
+	}
+	pthread_mutex_unlock(&game->chat.m_chat_box);
+}
+
+static int chat_npc_index(const Game *game, const char *npc_id) {
+	if (!npc_id) return -1;
+	for (int i = 0; i < game->nb_npcs; i++)
+		if (game->npcs[i].def && game->npcs[i].def->id &&
+		    strcmp(game->npcs[i].def->id, npc_id) == 0) return i;
+	return -1;
+}
+
+void chat_restore_from_save(Game *game) {
+	if (!game || !game->save) return;
+	chat_free(game);
+	chat_init(game);
+
+	if (game->save->nb_chat_log > 0) {
+		for (int i = 0; i < game->save->nb_chat_log; i++) {
+			const SavedChatEntry *e = &game->save->chat_log[i];
+			int npc = chat_npc_index(game, e->npc_id);
+			chat_push(game, e->kind, npc, e->text ? e->text : "");
+		}
+		return;
+	}
+
+	/* Migration douce des anciennes sauvegardes : elles ne possedent que la
+	 * fenetre recente de chaque PNJ et aucune chronologie globale. On restaure
+	 * ce qui existe, groupe par personnage ; les nouveaux tours seront ensuite
+	 * conserves integralement dans chat_log. */
+	for (int i = 0; i < game->nb_npcs; i++) {
+		NpcState *ns = memory_get_npc(game->save, game->npcs[i].def->id);
+		if (!ns) continue;
+		for (int m = 0; m < ns->nb_recent; m++) {
+			const ChatMsg *msg = &ns->recent[m];
+			if (msg->role && strcmp(msg->role, "user") == 0)
+				chat_push(game, CHAT_PLAYER, -1, msg->content);
+			else if (msg->role && strcmp(msg->role, "assistant") == 0) {
+				chat_push(game, CHAT_NPC, i, msg->content);
+				if (msg->action && *msg->action)
+					chat_push(game, CHAT_ACTION, i, msg->action);
+			}
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -162,7 +248,13 @@ void chat_tick(Game *game) {
 /* ------------------------------------------------------------------ */
 
 static void line_push(const char *text, int pair, int attrs) {
-	if (g_nb_lines >= CHAT_LINES_MAX) return;
+	if (g_nb_lines >= g_cap_lines) {
+		int cap = g_cap_lines > 0 ? g_cap_lines * 2 : CHAT_LINES_MAX;
+		ChatLine *grown = realloc(g_lines, sizeof(ChatLine) * (size_t)cap);
+		if (!grown) return;
+		g_lines = grown;
+		g_cap_lines = cap;
+	}
 	ChatLine *l = &g_lines[g_nb_lines++];
 	snprintf(l->text, sizeof(l->text), "%s", text);
 	l->pair  = pair;
