@@ -502,7 +502,7 @@ int game_loop(Game *game) {
 					MEVENT ev;
 					if (getmouse(&ev) == OK) {
 						if (ev.bstate & BUTTON4_PRESSED)      chat_scroll(game, 3);
-						else if (ev.bstate & BUTTON5_PRESSED) chat_scroll(game, -3);
+						else if (ev.bstate & OFFSCRIPT_BUTTON5_PRESSED) chat_scroll(game, -3);
 					}
 				}
 				chat_render(game);
@@ -555,7 +555,7 @@ int start_game(Game *game){
      * Le masque ne retient que la molette, mais ncurses doit quand meme
      * demander au terminal de rapporter TOUS les boutons : le prix a payer est
      * que selectionner du texte a la souris demande desormais Maj+glisser. */
-    mousemask(BUTTON4_PRESSED | BUTTON5_PRESSED, NULL);
+	    mousemask(OFFSCRIPT_MOUSE_WHEEL_MASK, NULL);
     mouseinterval(0);       // pas d'attente d'un double-clic qu'on n'ecoute pas
 	start_color();          // Activer les couleurs
 	wtimeout(stdscr, INPUT_TIMEOUT_MS);

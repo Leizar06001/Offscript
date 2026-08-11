@@ -25,6 +25,18 @@
 #include "apikey.h"
 #include "options.h"
 
+/* Le ncurses livre avec macOS utilise encore l'interface souris v1, qui ne
+ * definit pas BUTTON5_PRESSED (molette vers le bas). Ne pas inventer ce bit :
+ * son masque 32 bits n'a justement pas la place pour un cinquieme bouton.
+ * La molette haute reste disponible et PgUp/PgDn couvrent les deux sens. */
+#ifdef BUTTON5_PRESSED
+# define OFFSCRIPT_BUTTON5_PRESSED BUTTON5_PRESSED
+# define OFFSCRIPT_MOUSE_WHEEL_MASK (BUTTON4_PRESSED | BUTTON5_PRESSED)
+#else
+# define OFFSCRIPT_BUTTON5_PRESSED ((mmask_t)0)
+# define OFFSCRIPT_MOUSE_WHEEL_MASK BUTTON4_PRESSED
+#endif
+
 #define IN_KEY_EXIT -1
 #define IN_KEY_UNKN	0
 #define IN_KEY_MOVE	1

@@ -324,7 +324,7 @@ int get_user_input(Game *game) {
 		MEVENT ev;
 		if (getmouse(&ev) == OK) {
 			if (ev.bstate & BUTTON4_PRESSED)      chat_scroll(game, 3);
-			else if (ev.bstate & BUTTON5_PRESSED) chat_scroll(game, -3);
+			else if (ev.bstate & OFFSCRIPT_BUTTON5_PRESSED) chat_scroll(game, -3);
 		}
 		return IN_KEY_UNKN;
 	}

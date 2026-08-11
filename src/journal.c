@@ -228,7 +228,7 @@ void journal_show(Game *game) {
 			ch = 0;
 			if (getmouse(&ev) == OK) {
 				if (ev.bstate & BUTTON4_PRESSED)      ch = KEY_UP;
-				else if (ev.bstate & BUTTON5_PRESSED) ch = KEY_DOWN;
+				else if (ev.bstate & OFFSCRIPT_BUTTON5_PRESSED) ch = KEY_DOWN;
 			}
 		}
 
